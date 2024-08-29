@@ -59,8 +59,16 @@ class DockerFargateStack(Stack):
         }
 
         env_vars = get_container_env(env)
+        
+        entrypoint = "sh"
+        command =               "echo ${config.yml} > /etc/docker/registry/config.yml"
+        command = command + " && echo ${public.crt} > /etc/docker/registry/ssl/public.crt"
+        command = command + " && echo ${privatekey.pem} > /etc/docker/registry/ssl/privatekey.pem"
+        command = command + " && /entrypoint.sh /etc/docker/registry/config.yml"
 
         task_image_options = ecs_patterns.ApplicationLoadBalancedTaskImageOptions(
+                   entrypoint=entrypoint,
+                   command=["-c", command],
                    image=ecs.ContainerImage.from_registry(get_docker_image_name(env)),
                    environment=env_vars,
                    secrets = secrets,
@@ -97,7 +105,7 @@ class DockerFargateStack(Stack):
         # https://docs.aws.amazon.com/cdk/api/v1/python/aws_cdk.aws_elasticloadbalancingv2/ApplicationTargetGroup.html#aws_cdk.aws_elasticloadbalancingv2.ApplicationTargetGroup
         load_balanced_fargate_service.target_group.configure_health_check(interval=Duration.seconds(120), timeout=Duration.seconds(60))
 
-        if False: # enable/disable autoscaling
+        if True: # enable/disable autoscaling
             scalable_target = load_balanced_fargate_service.service.auto_scale_task_count(
                min_capacity=1, # Minimum capacity to scale to. Default: 1
                max_capacity=4 # Maximum capacity to scale to.

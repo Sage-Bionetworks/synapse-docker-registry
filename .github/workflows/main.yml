@@ -44,7 +44,7 @@ jobs:
     secrets: inherit
     with:
       CONTEXT: dev
-      ROLE_TO_ASSUME: arn:aws:iam::<dev-account-number>:role/<dev-role-name>
+      ROLE_TO_ASSUME: arn:aws:iam::449435941126:role/sagebase-github-oidc-sage-bionetworks-synapse-docker-registry
 
   cdk-deploy-prod:
     if: ${{github.ref == 'refs/heads/prod'}}
@@ -53,4 +53,4 @@ jobs:
     secrets: inherit
     with:
       CONTEXT: prod
-      ROLE_TO_ASSUME: arn:aws:iam::<production-account-number>:role/<production-role-name>
+      ROLE_TO_ASSUME: arn:aws:iam::325565585839:role/sagebase-github-oidc-sage-bionetworks-synapse-docker-registry

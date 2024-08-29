@@ -1,4 +1,4 @@
-# aws-application-deployment-template
+# synapse-docker-registry
 
 CDK-based template for deploying a containerized application to AWS
 
@@ -133,6 +133,7 @@ messages from AWS
 Each new environment (dev/staging/prod/etc..) may require adding secrets.  If a
 secret is not created for the environment you may get an error with the following
 stack trace..
+
 ```
 Resource handler returned message: "Error occurred during operation 'ECS Deployment Circuit Breaker was triggered'." (RequestToken: d180e115-ba94-d8a2-acf9-abe17a3aaed9, HandlerErrorCode: GeneralServiceException)
     new BaseService (/private/var/folders/qr/ztb40vmn2pncyh8jpsgfnrt40000gp/T/jsii-kernel-4PEWmj/node_modules/aws-cdk-lib/aws-ecs/lib/base/base-service.js:1:3583)

@@ -31,36 +31,32 @@
       "aws-cn"
     ],
     "dev": {
-      "IMAGE_PATH_AND_TAG": "ghcr.io/sage-bionetworks/myapp:release-1.0",
+      "IMAGE_PATH_AND_TAG": "registry:2",
       "AWS_DEFAULT_REGION": "us-east-1",
-      "PORT": "3838",
+      "PORT": "443",
       "CONTAINER_ENV": {
-        "name1": "value1",
-        "name2": "value2"
       },
       "TAGS": {
-        "CostCenter": "NO PROGRAM / 000000",
-        "OwnerEmail": "joe@sagebase.org"
+        "CostCenter": "Platform Infrastructure / 990300",
+        "OwnerEmail": "synapseeng@sagebase.org"
       },
-      "STACK_NAME_PREFIX": "myapp-dev",
-      "VPC_CIDR": "172.31.0.0/24",
-      "ACM_CERT_ARN": "arn:aws:acm:us-east-1:<DEV_ACCOUNT_ID>:certificate/<DEV_CERT_ID>"
+      "STACK_NAME_PREFIX": "registry-dev",
+      "VPC_CIDR": "172.33.0.0/24",
+      "ACM_CERT_ARN": "arn:aws:acm:us-east-1:449435941126:certificate/bbd59a26-ad30-4b74-ad2d-194241801b22"
     },
     "prod": {
-      "IMAGE_PATH_AND_TAG": "ghcr.io/sage-bionetworks/myapp:release-1.0",
+      "IMAGE_PATH_AND_TAG": "registry:2",
       "AWS_DEFAULT_REGION": "us-east-1",
-      "PORT": "3838",
+      "PORT": "443",
       "CONTAINER_ENV": {
-        "name1": "value1",
-        "name2": "value2"
       },
       "TAGS": {
-        "CostCenter": "NO PROGRAM / 000000",
-        "OwnerEmail": "joe@sagebase.org"
+        "CostCenter": "Platform Infrastructure / 990300",
+        "OwnerEmail": "synapseeng@sagebase.org"
       },
-      "STACK_NAME_PREFIX": "myapp-prod",
-      "VPC_CIDR": "172.32.0.0/24",
-      "ACM_CERT_ARN": "arn:aws:acm:us-east-1:<PROD_ACCOUNT_ID>:certificate/<PROD_CERT_ID>"
+      "STACK_NAME_PREFIX": "registry-prod",
+      "VPC_CIDR": "172.33.1.0/24",
+      "ACM_CERT_ARN": "arn:aws:acm:us-east-1:325565585839:certificate/7c42c355-3d69-4537-a5e6-428212db646f"
     }
   }
 }
