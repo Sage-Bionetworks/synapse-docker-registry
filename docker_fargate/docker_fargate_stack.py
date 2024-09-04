@@ -61,9 +61,10 @@ class DockerFargateStack(Stack):
         env_vars = get_container_env(env)
         
         entrypoint = "sh"
-        command =               "echo ${config.yml} > /etc/docker/registry/config.yml"
-        command = command + " && echo ${public.crt} > /etc/docker/registry/ssl/public.crt"
-        command = command + " && echo ${privatekey.pem} > /etc/docker/registry/ssl/privatekey.pem"
+        command =               "echo ${config.yml} | base64 --decode > /etc/docker/registry/config.yml"
+        command = command + " && echo ${cert.pem} | base64 --decode > /etc/docker/registry/cert.pem"
+        command = command + " && echo ${public.crt} | base64 --decode > /etc/docker/registry/ssl/public.crt"
+        command = command + " && echo ${privatekey.pem} | base64 --decode > /etc/docker/registry/ssl/privatekey.pem"
         command = command + " && /entrypoint.sh /etc/docker/registry/config.yml"
 
         task_image_options = ecs_patterns.ApplicationLoadBalancedTaskImageOptions(
@@ -101,11 +102,7 @@ class DockerFargateStack(Stack):
             ssl_policy=elbv2.SslPolicy.FORWARD_SECRECY_TLS12_RES, # Strong forward secrecy ciphers and TLS1.2 only.
         )
 
-        # Overriding health check timeout helps with sluggishly responding app's (e.g. Shiny)
-        # https://docs.aws.amazon.com/cdk/api/v1/python/aws_cdk.aws_elasticloadbalancingv2/ApplicationTargetGroup.html#aws_cdk.aws_elasticloadbalancingv2.ApplicationTargetGroup
-        load_balanced_fargate_service.target_group.configure_health_check(interval=Duration.seconds(120), timeout=Duration.seconds(60))
-
-        if True: # enable/disable autoscaling
+       if True: # enable/disable autoscaling
             scalable_target = load_balanced_fargate_service.service.auto_scale_task_count(
                min_capacity=1, # Minimum capacity to scale to. Default: 1
                max_capacity=4 # Maximum capacity to scale to.
