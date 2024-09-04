@@ -27,7 +27,7 @@ storage:
         layerinfo: inmemory
     s3:
         region: us-east-1
-        bucket: 
+        bucket:
         encrypt: true
         secure: true
         v4auth: true

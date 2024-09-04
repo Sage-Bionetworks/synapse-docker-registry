@@ -59,7 +59,7 @@ class DockerFargateStack(Stack):
         }
 
         env_vars = get_container_env(env)
-        
+
         entrypoint = "sh"
         command =               "echo ${config.yml} | base64 --decode > /etc/docker/registry/config.yml"
         command = command + " && echo ${cert.pem} | base64 --decode > /etc/docker/registry/cert.pem"
@@ -102,7 +102,7 @@ class DockerFargateStack(Stack):
             ssl_policy=elbv2.SslPolicy.FORWARD_SECRECY_TLS12_RES, # Strong forward secrecy ciphers and TLS1.2 only.
         )
 
-       if True: # enable/disable autoscaling
+        if True: # enable/disable autoscaling
             scalable_target = load_balanced_fargate_service.service.auto_scale_task_count(
                min_capacity=1, # Minimum capacity to scale to. Default: 1
                max_capacity=4 # Maximum capacity to scale to.
