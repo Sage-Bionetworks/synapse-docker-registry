@@ -10,8 +10,7 @@ We use the [AWS Secrets Manager](https://docs.aws.amazon.com/secretsmanager/late
 In dev the secret is named `registry-dev-DockerFargateStack/dev/ecs` and in the prod stack,
 `registry-prod-DockerFargateStack/prod/ecs`
 
-A secret is a collection of key-value pairs.  For this application there are four pairs. The keys and their values are described below. Note that each value is base64-encoded.
-This is because Secrets Manager doesn't handle line breaks when values are entered in the AWS console.
+A secret is a collection of key-value pairs.  For this application there are four pairs. The keys and their values are described below. Note that each value is base64-encoded. This is because Secrets Manager doesn't handle line breaks when values are entered in the AWS console.
 
 - `config.yml` The value should be a yml file based on `sample-registry-config.yml`, provided in this repository.
 
@@ -25,8 +24,7 @@ This is because Secrets Manager doesn't handle line breaks when values are enter
 ### Missing Secrets
 
 Each new environment (dev/staging/prod/etc..) may require adding secrets.  If a
-secret is not created for the environment you may get an error with the following
-stack trace..
+secret is not created for the environment you may get an error with the following stack trace:
 
 ```
 Resource handler returned message: "Error occurred during operation 'ECS Deployment Circuit Breaker was triggered'." (RequestToken: d180e115-ba94-d8a2-acf9-abe17a3aaed9, HandlerErrorCode: GeneralServiceException)

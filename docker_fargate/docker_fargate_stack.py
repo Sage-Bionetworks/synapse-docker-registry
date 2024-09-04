@@ -68,7 +68,7 @@ class DockerFargateStack(Stack):
         command = command + " && /entrypoint.sh /etc/docker/registry/config.yml"
 
         task_image_options = ecs_patterns.ApplicationLoadBalancedTaskImageOptions(
-                   entry_point=entrypoint,
+                   entry_point=[entrypoint],
                    command=["-c", command],
                    image=ecs.ContainerImage.from_registry(get_docker_image_name(env)),
                    environment=env_vars,
