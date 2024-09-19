@@ -12,8 +12,6 @@ import config as config
 import aws_cdk.aws_certificatemanager as cm
 import aws_cdk.aws_secretsmanager as sm
 from constructs import Construct
-from importlib import resources.files as files
-from . import resources
 
 ACM_CERT_ARN_CONTEXT = "ACM_CERT_ARN"
 IMAGE_PATH_AND_TAG_CONTEXT = "IMAGE_PATH_AND_TAG"

@@ -10,7 +10,7 @@ We use the [AWS Secrets Manager](https://docs.aws.amazon.com/secretsmanager/late
 In dev the secret is named `registry-dev-DockerFargateStack/dev/ecs` and in the prod stack,
 `registry-prod-DockerFargateStack/prod/ecs`
 
-A secret is a collection of key-value pairs.  For this application there is just one pair.  The key should be `notification-auth` and the value is the 
+A secret is a collection of key-value pairs.  For this application there is just one pair.  The key should be `notification-auth` and the value is the
 Base64 encoded "Basic auth" credentials which are a shared-secret with Synapse as the event notification recipient.
 
 
