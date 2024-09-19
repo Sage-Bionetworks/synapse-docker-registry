@@ -1,0 +1,48 @@
+#
+# Configuration file for Docker registry
+# https://distribution.github.io/distribution/about/deploying/
+#
+# Before using, notifications/endpoints/headers/Authorization must be filled in
+#
+version: 0.1
+log:
+    level: info
+    formatter: text
+    fields:
+        service: registry
+http:
+    addr: :443
+    tls:
+        certificate: /etc/docker/registry/ssl/certificate.pem
+        key: /etc/docker/registry/ssl/privatekey.pem
+
+storage:
+    cache:
+        layerinfo: inmemory
+    s3:
+        region: us-east-1
+        bucket: dev-docker-registry.sagebase.org
+        encrypt: true
+        secure: true
+        v4auth: true
+        chunksize: 104857600
+        rootdirectory: /
+
+auth:
+    token:
+        realm: https://repo-dev.dev.sagebase.org/docker/v1/bearerToken
+        service: dev-docker-registry.dev.sagebase.org
+        issuer: www.synapse.org
+        rootcertbundle: /etc/docker/registry/token_signing_key_public_cert.pem
+
+notifications:
+    endpoints:
+    - name: Synapse
+      disabled: false
+      url: https://repo-dev.dev.sagebase.org/dockerRegistryListener/v1/events
+      headers:
+          Authorization:
+              - Basic notification-auth
+      timeout: 1m
+      threshold: 1
+      backoff: 30s

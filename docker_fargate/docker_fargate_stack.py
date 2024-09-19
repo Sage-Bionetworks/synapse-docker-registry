@@ -12,6 +12,8 @@ import config as config
 import aws_cdk.aws_certificatemanager as cm
 import aws_cdk.aws_secretsmanager as sm
 from constructs import Construct
+from importlib import resources.files as files
+from . import resources
 
 ACM_CERT_ARN_CONTEXT = "ACM_CERT_ARN"
 IMAGE_PATH_AND_TAG_CONTEXT = "IMAGE_PATH_AND_TAG"
@@ -60,16 +62,7 @@ class DockerFargateStack(Stack):
 
         env_vars = get_container_env(env)
 
-        entrypoint = "sh"
-        command =               "echo ${config.yml} | base64 --decode > /etc/docker/registry/config.yml"
-        command = command + " && echo ${cert.pem} | base64 --decode > /etc/docker/registry/cert.pem"
-        command = command + " && echo ${public.crt} | base64 --decode > /etc/docker/registry/ssl/public.crt"
-        command = command + " && echo ${privatekey.pem} | base64 --decode > /etc/docker/registry/ssl/privatekey.pem"
-        command = command + " && /entrypoint.sh /etc/docker/registry/config.yml"
-
         task_image_options = ecs_patterns.ApplicationLoadBalancedTaskImageOptions(
-                   entry_point=[entrypoint],
-                   command=["-c", command],
                    image=ecs.ContainerImage.from_registry(get_docker_image_name(env)),
                    environment=env_vars,
                    secrets = secrets,
@@ -102,24 +95,20 @@ class DockerFargateStack(Stack):
             ssl_policy=elbv2.SslPolicy.FORWARD_SECRECY_TLS12_RES, # Strong forward secrecy ciphers and TLS1.2 only.
         )
 
-        if True: # enable/disable autoscaling
-            scalable_target = load_balanced_fargate_service.service.auto_scale_task_count(
-               min_capacity=1, # Minimum capacity to scale to. Default: 1
-               max_capacity=4 # Maximum capacity to scale to.
-            )
+        scalable_target = load_balanced_fargate_service.service.auto_scale_task_count(
+           min_capacity=1, # Minimum capacity to scale to. Default: 1
+           max_capacity=4 # Maximum capacity to scale to.
+        )
 
-            # Add more capacity when CPU utilization reaches 50%
-            scalable_target.scale_on_cpu_utilization("CpuScaling",
-                target_utilization_percent=50
-            )
+        # Add more capacity when CPU utilization reaches 50%
+        scalable_target.scale_on_cpu_utilization("CpuScaling",
+            target_utilization_percent=50
+        )
 
-            # Add more capacity when memory utilization reaches 50%
-            scalable_target.scale_on_memory_utilization("MemoryScaling",
-                target_utilization_percent=50
-            )
-
-            # Other metrics to drive scaling are discussed here:
-            # https://docs.aws.amazon.com/cdk/api/v1/python/aws_cdk.aws_autoscaling/README.html
+        # Add more capacity when memory utilization reaches 50%
+        scalable_target.scale_on_memory_utilization("MemoryScaling",
+            target_utilization_percent=50
+        )
 
         # Tag all resources in this Stack's scope with context tags
         for key, value in env.get(config.TAGS_CONTEXT).items():
