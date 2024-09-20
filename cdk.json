@@ -31,7 +31,7 @@
       "aws-cn"
     ],
     "dev": {
-      "IMAGE_PATH_AND_TAG": "sage-bionetworks/synapse-docker-registry:dev",
+      "IMAGE_PATH_AND_TAG": "ghcr.io/sage-bionetworks/synapse-docker-registry:dev",
       "AWS_DEFAULT_REGION": "us-east-1",
       "PORT": "443",
       "CONTAINER_ENV": {
@@ -41,11 +41,11 @@
         "OwnerEmail": "synapseeng@sagebase.org"
       },
       "STACK_NAME_PREFIX": "registry-dev",
-      "VPC_CIDR": "172.33.0.0/24",
+      "VPC_CIDR": "172.30.0.0/24",
       "ACM_CERT_ARN": "arn:aws:acm:us-east-1:449435941126:certificate/bbd59a26-ad30-4b74-ad2d-194241801b22"
     },
     "prod": {
-      "IMAGE_PATH_AND_TAG": "sage-bionetworks/synapse-docker-registry:prod",
+      "IMAGE_PATH_AND_TAG": "ghcr.io/sage-bionetworks/synapse-docker-registry:prod",
       "AWS_DEFAULT_REGION": "us-east-1",
       "PORT": "443",
       "CONTAINER_ENV": {
@@ -55,7 +55,7 @@
         "OwnerEmail": "synapseeng@sagebase.org"
       },
       "STACK_NAME_PREFIX": "registry-prod",
-      "VPC_CIDR": "172.33.1.0/24",
+      "VPC_CIDR": "172.30.1.0/24",
       "ACM_CERT_ARN": "arn:aws:acm:us-east-1:325565585839:certificate/7c42c355-3d69-4537-a5e6-428212db646f"
     }
   }

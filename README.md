@@ -13,10 +13,15 @@ In dev the secret is named `registry-dev-DockerFargateStack/dev/ecs` and in the 
 A secret is a collection of key-value pairs.  For this application there is just one pair.  The key should be `notification_auth` and the value is the
 Base64 encoded "Basic auth" credentials which are a shared-secret with Synapse as the event notification recipient.
 
+### Registry container
+We use the open source Docker `registry`, available on DockerHub.  This container requires several configuration files to be mounted.
+To achieve this cleanly, we embed the files into our own copy of the registry, published to GitHub as `ghcr.io/synapse-docker-registry`, making two versions under
+two different tags, `dev` and `prod`, each with its own configuration.  Note that the configuration files we add contain no secrets.  The only required secret (the event listener
+authorization credential) is inserted into the registry configuration file at the time the container is started up.
 
 ### Missing Secrets
 
-Each new environment (dev/staging/prod/etc..) may require adding secrets.  If a
+Each new environment (dev/staging/prod/etc..) requires adding secrets in AWS Secrets Manager.  If a
 secret is not created for the environment you may get an error with the following stack trace:
 
 ```
