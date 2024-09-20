@@ -69,25 +69,25 @@ jobs:
         uses: docker/build-push-action@v6.4.0
         with:
           context: .
-          build-args: stack=${{ env.branch }}
+          build-args: stack=$branch
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
 
   cdk-deploy-dev:
-    if: ${{env.branch == 'dev'}}
+    if: $branch == 'dev'
     needs: [tests, synth-test, build-registry-container]
     uses: "./.github/workflows/aws-deploy.yml"
     secrets: inherit
     with:
-      CONTEXT: ${{ env.branch }}
+      CONTEXT: $branch
       ROLE_TO_ASSUME: arn:aws:iam::449435941126:role/sagebase-github-oidc-sage-bionetworks-synapse-docker-registry
 
   cdk-deploy-prod:
-    if: ${{env.branch == 'prod'}}
+    if: $branch == 'prod'
     needs: [tests, synth-test, build-registry-container]
     uses: "./.github/workflows/aws-deploy.yml"
     secrets: inherit
     with:
-      CONTEXT: ${{ env.branch }}
+      CONTEXT: $branch
       ROLE_TO_ASSUME: arn:aws:iam::325565585839:role/sagebase-github-oidc-sage-bionetworks-synapse-docker-registry
