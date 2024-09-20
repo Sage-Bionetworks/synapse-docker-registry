@@ -40,7 +40,7 @@ jobs:
 
   build-registry-container:
     needs: [tests, synth-test]
-    if: ${{env.branch}} == 'dev' || ${{env.branch}} == 'prod'
+    if: ${{ env.branch }} == 'dev' || ${{ env.branch }} == 'prod'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -75,7 +75,7 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
 
   cdk-deploy-dev:
-    if: ${{env.branch}} == 'dev'
+    if: ${{ env.branch }} == 'dev'
     needs: [tests, synth-test, build-registry-container]
     uses: "./.github/workflows/aws-deploy.yml"
     secrets: inherit
@@ -84,7 +84,7 @@ jobs:
       ROLE_TO_ASSUME: arn:aws:iam::449435941126:role/sagebase-github-oidc-sage-bionetworks-synapse-docker-registry
 
   cdk-deploy-prod:
-    if: ${{env.branch}} == 'prod'
+    if: ${{ env.branch }} == 'prod'
     needs: [tests, synth-test, build-registry-container]
     uses: "./.github/workflows/aws-deploy.yml"
     secrets: inherit
