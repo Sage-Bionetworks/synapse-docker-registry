@@ -17,4 +17,4 @@ COPY certificate.pem /etc/docker/registry/ssl/certificate.pem
 
 COPY startup.sh /startup.sh
 
-CMD ["/startup.sh"]
+ENTRYPOINT ["/startup.sh"]

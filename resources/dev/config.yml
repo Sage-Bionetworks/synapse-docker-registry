@@ -42,7 +42,7 @@ notifications:
       url: https://repo-dev.dev.sagebase.org/dockerRegistryListener/v1/events
       headers:
           Authorization:
-              - Basic notification-auth
+              - Basic notification_auth
       timeout: 1m
       threshold: 1
       backoff: 30s
