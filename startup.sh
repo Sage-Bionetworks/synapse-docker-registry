@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 
 # Inject notification listener authorization credentials into config.yml
 sed -i "s/notification_auth/$notification_auth/g" /etc/docker/registry/config.yml
