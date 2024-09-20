@@ -40,7 +40,7 @@ jobs:
 
   build-registry-container:
     needs: [tests, synth-test]
-    if: ${{ env.branch }} == 'dev' || ${{ env.branch }} == 'prod'
+    if: $branch == 'dev' || $branch == 'prod'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
