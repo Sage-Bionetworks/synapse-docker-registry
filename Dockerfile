@@ -3,7 +3,7 @@
 # suitable for using with Synapse
 #
 #
-FROM registry:v2
+FROM registry:2
 # stack is dev or prod
 ARG stack=dev
 
@@ -15,9 +15,6 @@ COPY resources/${stack}/token_signing_key_public_cert.pem /etc/docker/registry/t
 COPY privatekey.pem /etc/docker/registry/ssl/privatekey.pem
 COPY certificate.pem /etc/docker/registry/ssl/certificate.pem
 
-ENTRYPOINT ...
-CMD ...
-
 COPY startup.sh /startup.sh
 
-CMD /startup.sh
+CMD ["/startup.sh"]
