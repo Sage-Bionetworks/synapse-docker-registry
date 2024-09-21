@@ -38,7 +38,7 @@ jobs:
   build-registry-container:
     needs: [tests, synth-test]
     # only run on a push/merge, not on a PR
-    if: ${{ github.ref_name }} == 'dev' || ${{ github.ref_name }} == 'prod'
+    if: (${{ github.ref_name }} == 'dev') || (${{ github.ref_name }} == 'prod')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
