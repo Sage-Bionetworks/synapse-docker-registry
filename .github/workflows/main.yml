@@ -37,7 +37,8 @@ jobs:
 
   build-registry-container:
     needs: [tests, synth-test]
-    if: ${{ github.event_name == 'push' }} && (${{ github.head_ref || github.ref_name }} == 'dev' || ${{ github.head_ref || github.ref_name }} == 'prod')
+    # only run on a push/merge, not on a PR
+    if: ${{ github.ref_name }} == 'dev' || ${{ github.ref_name }} == 'prod'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -66,25 +67,27 @@ jobs:
         uses: docker/build-push-action@v6.4.0
         with:
           context: .
-          build-args: stack=${{ github.head_ref || github.ref_name }}
+          build-args: stack=${{ github.ref_name }}
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
 
   cdk-deploy-dev:
-    if: ${{ github.event_name == 'push' }} && ${{ github.head_ref || github.ref_name }} == 'dev'
+    # only run on a push/merge, not on a PR
+    if: ${{ github.ref_name }} == 'dev'
     needs: [tests, synth-test, build-registry-container]
     uses: "./.github/workflows/aws-deploy.yml"
     secrets: inherit
     with:
-      CONTEXT: ${{ github.head_ref || github.ref_name }}
+      CONTEXT: ${{ github.ref_name }}
       ROLE_TO_ASSUME: arn:aws:iam::449435941126:role/sagebase-github-oidc-sage-bionetworks-synapse-docker-registry
 
   cdk-deploy-prod:
-    if: ${{ github.event_name == 'push' }} && ${{ github.head_ref || github.ref_name }} == 'prod'
+    # only run on a push/merge, not on a PR
+    if: ${{ \github.ref_name }} == 'prod'
     needs: [tests, synth-test, build-registry-container]
     uses: "./.github/workflows/aws-deploy.yml"
     secrets: inherit
     with:
-      CONTEXT: ${{ github.head_ref || github.ref_name }}
+      CONTEXT: ${{ github.ref_name }}
       ROLE_TO_ASSUME: arn:aws:iam::325565585839:role/sagebase-github-oidc-sage-bionetworks-synapse-docker-registry
