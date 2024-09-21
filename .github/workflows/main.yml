@@ -38,7 +38,7 @@ jobs:
   build-registry-container:
     needs: [tests, synth-test]
     # only run on a push/merge, not on a PR
-    if: (${{ github.ref_name }} == 'dev') || (${{ github.ref_name }} == 'prod')
+    if: ${{ github.ref_name == 'dev' || github.ref_name == 'prod' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -74,7 +74,7 @@ jobs:
 
   cdk-deploy-dev:
     # only run on a push/merge, not on a PR
-    if: ${{ github.ref_name }} == 'dev'
+    if: ${{ github.ref_name == 'dev' }}
     needs: [tests, synth-test, build-registry-container]
     uses: "./.github/workflows/aws-deploy.yml"
     secrets: inherit
@@ -84,7 +84,7 @@ jobs:
 
   cdk-deploy-prod:
     # only run on a push/merge, not on a PR
-    if: ${{ github.ref_name }} == 'prod'
+    if: ${{ github.ref_name == 'prod' }}
     needs: [tests, synth-test, build-registry-container]
     uses: "./.github/workflows/aws-deploy.yml"
     secrets: inherit
