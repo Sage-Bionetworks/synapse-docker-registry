@@ -84,7 +84,7 @@ jobs:
 
   cdk-deploy-prod:
     # only run on a push/merge, not on a PR
-    if: ${{ \github.ref_name }} == 'prod'
+    if: ${{ github.ref_name }} == 'prod'
     needs: [tests, synth-test, build-registry-container]
     uses: "./.github/workflows/aws-deploy.yml"
     secrets: inherit
