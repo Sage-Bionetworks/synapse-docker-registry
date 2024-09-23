@@ -61,7 +61,7 @@ jobs:
         run: >
           openssl req -x509 -days 3650 -newkey rsa:2048 -sha256
           -nodes -keyout privatekey.pem -out certificate.pem
-          -subj "/C=US/ST=Seattle/L=WA/O=SageBionetworks/OU=IT/CN=synapse.org"
+          -subj "/C=US/ST=WA/L=Seattle/O=SageBionetworks/OU=IT/CN=www.synapse.org"
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v6.4.0
