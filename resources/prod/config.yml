@@ -13,7 +13,7 @@ log:
 http:
     addr: :443
     tls:
-        certificate: /etc/docker/registry/ssl/public.crt
+        certificate: /etc/docker/registry/ssl/certificate.pem
         key: /etc/docker/registry/ssl/privatekey.pem
 
 storage:
