@@ -46,8 +46,8 @@ jobs:
         # the Dockerfile expects these files, but the content is not used
         # so we jsut put dummy information in them
         run: >
-          cat "fake-key" > privatekey.pem
-          cat "fake-cert" > certificate.pem
+          echo "fake-key" > privatekey.pem
+          echo "fake-cert" > certificate.pem
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v6.4.0
