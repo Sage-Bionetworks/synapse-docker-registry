@@ -96,7 +96,7 @@ jobs:
   cdk-deploy-dev:
     # only run on a push/merge, not on a PR
     if: ${{ github.ref_name == 'dev' }}
-    needs: [tests, synth-test, build-registry-container]
+    needs: [tests, synth-test, build-and-publish-registry-container]
     uses: "./.github/workflows/aws-deploy.yml"
     secrets: inherit
     with:
@@ -106,7 +106,7 @@ jobs:
   cdk-deploy-prod:
     # only run on a push/merge, not on a PR
     if: ${{ github.ref_name == 'prod' }}
-    needs: [tests, synth-test, build-registry-container]
+    needs: [tests, synth-test, build-and-publish-registry-container]
     uses: "./.github/workflows/aws-deploy.yml"
     secrets: inherit
     with:
