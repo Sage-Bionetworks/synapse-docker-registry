@@ -142,3 +142,7 @@ cdk.out/
 
 # VS Code
 .vscode/
+
+# locally generated self-signed certificate-key pair
+certificate.pem
+privatekey.pem

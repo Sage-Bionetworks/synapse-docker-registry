@@ -17,7 +17,18 @@ Base64 encoded "Basic auth" credentials which are a shared-secret with Synapse a
 We use the open source Docker `registry`, available on DockerHub.  This container requires several configuration files to be mounted.
 To achieve this cleanly, we embed the files into our own copy of the registry, published to GitHub as `ghcr.io/synapse-docker-registry`, making two versions under
 two different tags, `dev` and `prod`, each with its own configuration.  Note that the configuration files we add contain no secrets.  The only required secret (the event listener
-authorization credential) is inserted into the registry configuration file at the time the container is started up.
+authorization credential) is inserted into the registry configuration file at the time the container is started up. (See /startup.sh.)
+
+To build the container image manually during development:
+
+```
+openssl req -x509 -days 3650 -newkey rsa:2048 -sha256 \
+-nodes -keyout privatekey.pem -out certificate.pem \
+-subj "/C=US/ST=WA/L=Seattle/O=SageBionetworks/OU=IT/CN=www.synapse.org"
+
+docker build --build-arg stack=dev .
+
+```
 
 ### Missing Secrets
 
