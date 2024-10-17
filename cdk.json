@@ -31,7 +31,6 @@
       "aws-cn"
     ],
     "dev": {
-      "IMAGE_PATH_AND_TAG": "ghcr.io/sage-bionetworks/synapse-docker-registry:dev",
       "AWS_DEFAULT_REGION": "us-east-1",
       "PORT": "443",
       "CONTAINER_ENV": {
@@ -45,7 +44,6 @@
       "ACM_CERT_ARN": "arn:aws:acm:us-east-1:449435941126:certificate/bbd59a26-ad30-4b74-ad2d-194241801b22"
     },
     "prod": {
-      "IMAGE_PATH_AND_TAG": "ghcr.io/sage-bionetworks/synapse-docker-registry:prod",
       "AWS_DEFAULT_REGION": "us-east-1",
       "PORT": "443",
       "CONTAINER_ENV": {

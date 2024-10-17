@@ -12,6 +12,7 @@ import config as config
 import aws_cdk.aws_certificatemanager as cm
 import aws_cdk.aws_secretsmanager as sm
 from constructs import Construct
+from docker_fargate.generate_ssl_cert import cert_gen
 
 ACM_CERT_ARN_CONTEXT = "ACM_CERT_ARN"
 IMAGE_PATH_AND_TAG_CONTEXT = "IMAGE_PATH_AND_TAG"
@@ -20,6 +21,9 @@ PORT_NUMBER_CONTEXT = "PORT"
 # The name of the environment variable that will hold the secrets
 SECRETS_MANAGER_ENV_NAME = "SECRETS_MANAGER_SECRETS"
 CONTAINER_ENV_NAME = "CONTAINER_ENV"
+
+PRIVATE_KEY_FILE_NAME = "privatekey.pem"
+CERTIFICATE_FILE_NAME = "certificate.pem"
 
 def get_secret(scope: Construct, id: str, name: str) -> str:
     isecret = sm.Secret.from_secret_name_v2(scope, id, name)
@@ -60,8 +64,22 @@ class DockerFargateStack(Stack):
 
         env_vars = get_container_env(env)
 
+        # Build the container image for the registry
+        # Need self-signed certificates to add to the image
+        key_and_cert = cert_gen()
+        # write the private key and self-signed-cert to disk for Docker to use
+        with open(PRIVATE_KEY_FILE_NAME, "wt") as f:
+          f.write(key_and_cert["private_key"])
+        with open(CERTIFICATE_FILE_NAME, "wt") as f:
+          f.write(key_and_cert["certificate"])
+        # Now build the image, using the self-signed cert and key
+        image = ecs.ContainerImage.from_asset(
+			directory=".",
+			build_args={"stack":context} # 'dev' or 'prod'
+        )
+
         task_image_options = ecs_patterns.ApplicationLoadBalancedTaskImageOptions(
-                   image=ecs.ContainerImage.from_registry(get_docker_image_name(env)),
+                   image=image,
                    environment=env_vars,
                    secrets = secrets,
                    container_port = get_port(env))
@@ -88,6 +106,7 @@ class DockerFargateStack(Stack):
             public_load_balancer=True,  # Default is False
             redirect_http=True,
             # TLS:
+            target_protocol=elbv2.ApplicationProtocol.HTTPS,
             certificate=cert,
             protocol=elbv2.ApplicationProtocol.HTTPS,
             ssl_policy=elbv2.SslPolicy.FORWARD_SECRECY_TLS12_RES, # Strong forward secrecy ciphers and TLS1.2 only.
