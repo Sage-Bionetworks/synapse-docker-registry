@@ -41,10 +41,10 @@ def cert_gen(
     cert.set_issuer(cert.get_subject())
     cert.set_pubkey(k)
     cert.sign(k, 'sha512')
-    return {'private_key':crypto.dump_privatekey(crypto.FILETYPE_PEM, k).decode("utf-8"), 
-    	'certificate':crypto.dump_certificate(crypto.FILETYPE_PEM, cert).decode("utf-8")}
+    return {'private_key':crypto.dump_privatekey(crypto.FILETYPE_PEM, k).decode("utf-8"),
+        'certificate':crypto.dump_certificate(crypto.FILETYPE_PEM, cert).decode("utf-8")}
 
-        
+
 if __name__ == '__main__':
-	result = cert_gen()
-	print(f"private_key:\n{result['private_key']}\n\ncert:\n{result['certificate']}")
+    result = cert_gen()
+    print(f"private_key:\n{result['private_key']}\n\ncert:\n{result['certificate']}")

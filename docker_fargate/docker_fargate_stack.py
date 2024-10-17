@@ -74,8 +74,8 @@ class DockerFargateStack(Stack):
           f.write(key_and_cert["certificate"])
         # Now build the image, using the self-signed cert and key
         image = ecs.ContainerImage.from_asset(
-			directory=".",
-			build_args={"stack":context} # 'dev' or 'prod'
+            directory=".",
+            build_args={"stack":context} # 'dev' or 'prod'
         )
 
         task_image_options = ecs_patterns.ApplicationLoadBalancedTaskImageOptions(
