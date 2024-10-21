@@ -25,32 +25,32 @@ jobs:
       - name: Run unit tests
         run: python -m pytest tests/ -s -v
 
-  synth-test-dev:
+  # make sure tests pass for both dev and prod stacks
+  synth-test:
     needs: tests
+    strategy:
+      matrix:
+        stack: ['dev', 'prod']
     uses: "./.github/workflows/synth-test.yml"
     with:
-      CONTEXT: dev
-
-  synth-test-prod:
-    needs: tests
-    uses: "./.github/workflows/synth-test.yml"
-    with:
-      CONTEXT: prod
+      CONTEXT: ${{ matrix.stack }}
 
   cdk-deploy-dev:
-    if: ${{github.ref == 'refs/heads/dev'}}
-    needs: [tests, synth-test-dev]
+    # only run on a push/merge, not on a PR
+    if: ${{ github.ref_name == 'dev' }}
+    needs: [tests, synth-test]
     uses: "./.github/workflows/aws-deploy.yml"
     secrets: inherit
     with:
-      CONTEXT: dev
-      ROLE_TO_ASSUME: arn:aws:iam::<dev-account-number>:role/<dev-role-name>
+      CONTEXT: ${{ github.ref_name }}
+      ROLE_TO_ASSUME: arn:aws:iam::449435941126:role/sagebase-github-oidc-sage-bionetworks-synapse-docker-registry
 
   cdk-deploy-prod:
-    if: ${{github.ref == 'refs/heads/prod'}}
-    needs: [tests, synth-test-prod]
+    # only run on a push/merge, not on a PR
+    if: ${{ github.ref_name == 'prod' }}
+    needs: [tests, synth-test]
     uses: "./.github/workflows/aws-deploy.yml"
     secrets: inherit
     with:
-      CONTEXT: prod
-      ROLE_TO_ASSUME: arn:aws:iam::<production-account-number>:role/<production-role-name>
+      CONTEXT: ${{ github.ref_name }}
+      ROLE_TO_ASSUME: arn:aws:iam::325565585839:role/sagebase-github-oidc-sage-bionetworks-synapse-docker-registry

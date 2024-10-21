@@ -12,6 +12,7 @@ import config as config
 import aws_cdk.aws_certificatemanager as cm
 import aws_cdk.aws_secretsmanager as sm
 from constructs import Construct
+from docker_fargate.generate_ssl_cert import cert_gen
 
 ACM_CERT_ARN_CONTEXT = "ACM_CERT_ARN"
 IMAGE_PATH_AND_TAG_CONTEXT = "IMAGE_PATH_AND_TAG"
@@ -20,6 +21,9 @@ PORT_NUMBER_CONTEXT = "PORT"
 # The name of the environment variable that will hold the secrets
 SECRETS_MANAGER_ENV_NAME = "SECRETS_MANAGER_SECRETS"
 CONTAINER_ENV_NAME = "CONTAINER_ENV"
+
+PRIVATE_KEY_FILE_NAME = "privatekey.pem"
+CERTIFICATE_FILE_NAME = "certificate.pem"
 
 def get_secret(scope: Construct, id: str, name: str) -> str:
     isecret = sm.Secret.from_secret_name_v2(scope, id, name)
@@ -60,8 +64,22 @@ class DockerFargateStack(Stack):
 
         env_vars = get_container_env(env)
 
+        # Build the container image for the registry
+        # Need self-signed certificates to add to the image
+        key_and_cert = cert_gen()
+        # write the private key and self-signed-cert to disk for Docker to use
+        with open(PRIVATE_KEY_FILE_NAME, "wt") as f:
+          f.write(key_and_cert["private_key"])
+        with open(CERTIFICATE_FILE_NAME, "wt") as f:
+          f.write(key_and_cert["certificate"])
+        # Now build the image, using the self-signed cert and key
+        image = ecs.ContainerImage.from_asset(
+            directory=".",
+            build_args={"stack":context} # 'dev' or 'prod'
+        )
+
         task_image_options = ecs_patterns.ApplicationLoadBalancedTaskImageOptions(
-                   image=ecs.ContainerImage.from_registry(get_docker_image_name(env)),
+                   image=image,
                    environment=env_vars,
                    secrets = secrets,
                    container_port = get_port(env))
@@ -88,33 +106,26 @@ class DockerFargateStack(Stack):
             public_load_balancer=True,  # Default is False
             redirect_http=True,
             # TLS:
+            target_protocol=elbv2.ApplicationProtocol.HTTPS,
             certificate=cert,
             protocol=elbv2.ApplicationProtocol.HTTPS,
             ssl_policy=elbv2.SslPolicy.FORWARD_SECRECY_TLS12_RES, # Strong forward secrecy ciphers and TLS1.2 only.
         )
 
-        # Overriding health check timeout helps with sluggishly responding app's (e.g. Shiny)
-        # https://docs.aws.amazon.com/cdk/api/v1/python/aws_cdk.aws_elasticloadbalancingv2/ApplicationTargetGroup.html#aws_cdk.aws_elasticloadbalancingv2.ApplicationTargetGroup
-        load_balanced_fargate_service.target_group.configure_health_check(interval=Duration.seconds(120), timeout=Duration.seconds(60))
+        scalable_target = load_balanced_fargate_service.service.auto_scale_task_count(
+           min_capacity=1, # Minimum capacity to scale to. Default: 1
+           max_capacity=4 # Maximum capacity to scale to.
+        )
 
-        if False: # enable/disable autoscaling
-            scalable_target = load_balanced_fargate_service.service.auto_scale_task_count(
-               min_capacity=1, # Minimum capacity to scale to. Default: 1
-               max_capacity=4 # Maximum capacity to scale to.
-            )
+        # Add more capacity when CPU utilization reaches 50%
+        scalable_target.scale_on_cpu_utilization("CpuScaling",
+            target_utilization_percent=50
+        )
 
-            # Add more capacity when CPU utilization reaches 50%
-            scalable_target.scale_on_cpu_utilization("CpuScaling",
-                target_utilization_percent=50
-            )
-
-            # Add more capacity when memory utilization reaches 50%
-            scalable_target.scale_on_memory_utilization("MemoryScaling",
-                target_utilization_percent=50
-            )
-
-            # Other metrics to drive scaling are discussed here:
-            # https://docs.aws.amazon.com/cdk/api/v1/python/aws_cdk.aws_autoscaling/README.html
+        # Add more capacity when memory utilization reaches 50%
+        scalable_target.scale_on_memory_utilization("MemoryScaling",
+            target_utilization_percent=50
+        )
 
         # Tag all resources in this Stack's scope with context tags
         for key, value in env.get(config.TAGS_CONTEXT).items():
