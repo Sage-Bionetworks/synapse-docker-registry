@@ -21,7 +21,7 @@ storage:
         layerinfo: inmemory
     s3:
         region: us-east-1
-        bucket: prod.docker.registry.sagebase.org
+        bucket: bucket_name
         encrypt: true
         secure: true
         v4auth: true

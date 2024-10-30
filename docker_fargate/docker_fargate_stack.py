@@ -1,9 +1,11 @@
 from aws_cdk import (Stack,
     aws_ec2 as ec2,
+    aws_s3 as s3,
     aws_ecs as ecs,
     aws_ecs_patterns as ecs_patterns,
     aws_elasticloadbalancingv2 as elbv2,
     aws_route53 as r53,
+    aws_iam as iam,
     CfnOutput,
     Duration,
     Tags)
@@ -13,6 +15,8 @@ import aws_cdk.aws_certificatemanager as cm
 import aws_cdk.aws_secretsmanager as sm
 from constructs import Construct
 from docker_fargate.generate_ssl_cert import cert_gen
+
+from aws_cdk.aws_ecr_assets import Platform
 
 ACM_CERT_ARN_CONTEXT = "ACM_CERT_ARN"
 IMAGE_PATH_AND_TAG_CONTEXT = "IMAGE_PATH_AND_TAG"
@@ -25,14 +29,21 @@ CONTAINER_ENV_NAME = "CONTAINER_ENV"
 PRIVATE_KEY_FILE_NAME = "privatekey.pem"
 CERTIFICATE_FILE_NAME = "certificate.pem"
 
-def get_secret(scope: Construct, id: str, name: str) -> str:
+BUCKET_NAME = "BUCKET_NAME"
+
+SECRET_JSON_KEY="notification_auth"
+
+def get_secret(scope: Construct, id: str, name: str, secret_json_key) -> str:
     isecret = sm.Secret.from_secret_name_v2(scope, id, name)
-    return ecs.Secret.from_secrets_manager(isecret)
+    return ecs.Secret.from_secrets_manager(isecret, secret_json_key)
     # see also: https://docs.aws.amazon.com/cdk/api/v1/python/aws_cdk.aws_ecs/Secret.html
     # see also: ecs.Secret.from_ssm_parameter(ssm.IParameter(parameter_name=name))
 
 def get_container_env(env: dict) -> dict:
     return env.get(CONTAINER_ENV_NAME, {})
+
+def get_bucket_name(env: dict) -> dict:
+    return env.get(BUCKET_NAME)
 
 def get_certificate_arn(env: dict) -> str:
     return env.get(ACM_CERT_ARN_CONTEXT)
@@ -43,26 +54,52 @@ def get_docker_image_name(env: dict):
 def get_port(env: dict) -> int:
     return int(env.get(PORT_NUMBER_CONTEXT))
 
-
 class DockerFargateStack(Stack):
 
     def __init__(self, scope: Construct, context: str, env: dict, vpc: ec2.Vpc, **kwargs) -> None:
         stack_prefix = f'{env.get(config.STACK_NAME_PREFIX_CONTEXT)}'
         stack_id = f'{stack_prefix}-DockerFargateStack'
         super().__init__(scope, stack_id, **kwargs)
-
+        
+        # set up the bucket
+        bucket_name=get_bucket_name(env)
+        bucket_arn=f"arn:aws:s3:::{bucket_name}"
+        bucket=s3.Bucket.from_bucket_attributes(self, id=bucket_name, bucket_arn=bucket_arn)
+        
+        #
+        # Docker Registry cannot access the task role provided by
+        # ECS.  The work-around is to define an IAM user, give the
+        # user bucket access, and pass its key pair to the container
+        # as environment variables.
+        #
+        
+        # create a user
+        user = iam.User(self, "DockerRegistryUser")
+        # create a key pair, storing the secret in Secret Manager
+        access_key = iam.AccessKey(self, "AccessKey", user=user)
+        secret_stored_name = f'{env.get(config.STACK_NAME_PREFIX_CONTEXT)}-DockerFargateStack/{context}/access_key'
+        secret_stored_access_key = sm.Secret(self, secret_stored_name,
+        	secret_string_value=access_key.secret_access_key
+        )
+        
+        # give the user S3 access
+        bucket.grant_read_write(user)
+        
         cluster = ecs.Cluster(
             self,
             f'{stack_id}-Cluster',
             vpc=vpc,
             container_insights=True)
-
+        
         secret_name = f'{env.get(config.STACK_NAME_PREFIX_CONTEXT)}-DockerFargateStack/{context}/ecs'
         secrets = {
-            SECRETS_MANAGER_ENV_NAME: get_secret(self, secret_name, secret_name)
+            SECRET_JSON_KEY: get_secret(self, secret_name, secret_name, SECRET_JSON_KEY),
+            "AWS_SECRET_ACCESS_KEY": ecs.Secret.from_secrets_manager(secret_stored_access_key)
         }
 
         env_vars = get_container_env(env)
+        env_vars[BUCKET_NAME]=bucket_name
+        env_vars["AWS_ACCESS_KEY_ID"]=access_key.access_key_id
 
         # Build the container image for the registry
         # Need self-signed certificates to add to the image
@@ -75,6 +112,7 @@ class DockerFargateStack(Stack):
         # Now build the image, using the self-signed cert and key
         image = ecs.ContainerImage.from_asset(
             directory=".",
+            platform=Platform.LINUX_AMD64, # important to include when building locally, for testing
             build_args={"stack":context} # 'dev' or 'prod'
         )
 
@@ -90,10 +128,6 @@ class DockerFargateStack(Stack):
             get_certificate_arn(env),
         )
 
-        #
-        # for options to pass to ApplicationLoadBalancedTaskImageOptions see:
-        # https://docs.aws.amazon.com/cdk/api/v1/python/aws_cdk.aws_ecs_patterns/ApplicationLoadBalancedTaskImageOptions.html#aws_cdk.aws_ecs_patterns.ApplicationLoadBalancedTaskImageOptions
-        #
         load_balanced_fargate_service = ecs_patterns.ApplicationLoadBalancedFargateService(
             self,
             f'{stack_prefix}-Service',
@@ -109,7 +143,7 @@ class DockerFargateStack(Stack):
             target_protocol=elbv2.ApplicationProtocol.HTTPS,
             certificate=cert,
             protocol=elbv2.ApplicationProtocol.HTTPS,
-            ssl_policy=elbv2.SslPolicy.FORWARD_SECRECY_TLS12_RES, # Strong forward secrecy ciphers and TLS1.2 only.
+            ssl_policy=elbv2.SslPolicy.FORWARD_SECRECY_TLS12_RES # Strong forward secrecy ciphers and TLS1.2 only.
         )
 
         scalable_target = load_balanced_fargate_service.service.auto_scale_task_count(

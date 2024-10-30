@@ -21,7 +21,7 @@ storage:
         layerinfo: inmemory
     s3:
         region: us-east-1
-        bucket: dev-docker-registry.sagebase.org
+        bucket: bucket_name
         encrypt: true
         secure: true
         v4auth: true
@@ -31,7 +31,7 @@ storage:
 auth:
     token:
         realm: https://repo-dev.dev.sagebase.org/docker/v1/bearerToken
-        service: dev-docker-registry.dev.sagebase.org
+        service: docker-staging.dev.sagebase.org
         issuer: www.synapse.org
         rootcertbundle: /etc/docker/registry/token_signing_key_public_cert.pem
 
