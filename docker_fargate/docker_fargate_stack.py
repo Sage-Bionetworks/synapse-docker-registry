@@ -60,37 +60,37 @@ class DockerFargateStack(Stack):
         stack_prefix = f'{env.get(config.STACK_NAME_PREFIX_CONTEXT)}'
         stack_id = f'{stack_prefix}-DockerFargateStack'
         super().__init__(scope, stack_id, **kwargs)
-        
+
         # set up the bucket
         bucket_name=get_bucket_name(env)
         bucket_arn=f"arn:aws:s3:::{bucket_name}"
         bucket=s3.Bucket.from_bucket_attributes(self, id=bucket_name, bucket_arn=bucket_arn)
-        
+
         #
         # Docker Registry cannot access the task role provided by
         # ECS.  The work-around is to define an IAM user, give the
         # user bucket access, and pass its key pair to the container
         # as environment variables.
         #
-        
+
         # create a user
         user = iam.User(self, "DockerRegistryUser")
         # create a key pair, storing the secret in Secret Manager
         access_key = iam.AccessKey(self, "AccessKey", user=user)
         secret_stored_name = f'{env.get(config.STACK_NAME_PREFIX_CONTEXT)}-DockerFargateStack/{context}/access_key'
         secret_stored_access_key = sm.Secret(self, secret_stored_name,
-        	secret_string_value=access_key.secret_access_key
+            secret_string_value=access_key.secret_access_key
         )
-        
+
         # give the user S3 access
         bucket.grant_read_write(user)
-        
+
         cluster = ecs.Cluster(
             self,
             f'{stack_id}-Cluster',
             vpc=vpc,
             container_insights=True)
-        
+
         secret_name = f'{env.get(config.STACK_NAME_PREFIX_CONTEXT)}-DockerFargateStack/{context}/ecs'
         secrets = {
             SECRET_JSON_KEY: get_secret(self, secret_name, secret_name, SECRET_JSON_KEY),
