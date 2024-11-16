@@ -94,10 +94,10 @@ class DockerFargateStack(Stack):
         secret_name = f'{env.get(config.STACK_NAME_PREFIX_CONTEXT)}-DockerFargateStack/{context}/ecs'
         sm_secret = get_secret(self, secret_name, secret_name)
         secrets = {
-            NOTIFICATION_AUTH_SECRET_JSON_KEY: 
+            NOTIFICATION_AUTH_SECRET_JSON_KEY:
                 ecs.Secret.from_secrets_manager(sm_secret, NOTIFICATION_AUTH_SECRET_JSON_KEY),
-            HTTP_SECRET_SECRET_JSON_KEY: 
-            	ecs.Secret.from_secrets_manager(sm_secret, HTTP_SECRET_SECRET_JSON_KEY),
+            HTTP_SECRET_SECRET_JSON_KEY:
+                ecs.Secret.from_secrets_manager(sm_secret, HTTP_SECRET_SECRET_JSON_KEY),
             "AWS_SECRET_ACCESS_KEY": ecs.Secret.from_secrets_manager(secret_stored_access_key)
         }
 
