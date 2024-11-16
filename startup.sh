@@ -1,5 +1,10 @@
 #!/bin/sh
 
+# Inject http_secret into config.yml
+# The value is taken from the environment variable, `http_secret` which,
+# during ECS deployment comes from the AWS Secrets Manager.
+sed -i "s/http_secret/$http_secret/g" /etc/docker/registry/config.yml
+
 # Inject notification listener authorization credentials into config.yml
 # The value is taken from the environment variable, `notification_auth` which,
 # during ECS deployment comes from the AWS Secrets Manager.

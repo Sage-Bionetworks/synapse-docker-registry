@@ -15,6 +15,7 @@ http:
     tls:
         certificate: /etc/docker/registry/ssl/certificate.pem
         key: /etc/docker/registry/ssl/privatekey.pem
+    secret: http_secret
 
 storage:
     cache:
