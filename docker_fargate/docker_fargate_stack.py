@@ -31,11 +31,11 @@ CERTIFICATE_FILE_NAME = "certificate.pem"
 
 BUCKET_NAME = "BUCKET_NAME"
 
-SECRET_JSON_KEY="notification_auth"
+NOTIFICATION_AUTH_SECRET_JSON_KEY="notification_auth"
+HTTP_SECRET_SECRET_JSON_KEY="http_secret"
 
-def get_secret(scope: Construct, id: str, name: str, secret_json_key) -> str:
-    isecret = sm.Secret.from_secret_name_v2(scope, id, name)
-    return ecs.Secret.from_secrets_manager(isecret, secret_json_key)
+def get_secret(scope: Construct, id: str, name: str) -> str:
+    return sm.Secret.from_secret_name_v2(scope, id, name)
     # see also: https://docs.aws.amazon.com/cdk/api/v1/python/aws_cdk.aws_ecs/Secret.html
     # see also: ecs.Secret.from_ssm_parameter(ssm.IParameter(parameter_name=name))
 
@@ -92,8 +92,12 @@ class DockerFargateStack(Stack):
             container_insights=True)
 
         secret_name = f'{env.get(config.STACK_NAME_PREFIX_CONTEXT)}-DockerFargateStack/{context}/ecs'
+        sm_secret = get_secret(self, secret_name, secret_name)
         secrets = {
-            SECRET_JSON_KEY: get_secret(self, secret_name, secret_name, SECRET_JSON_KEY),
+            NOTIFICATION_AUTH_SECRET_JSON_KEY: 
+                ecs.Secret.from_secrets_manager(sm_secret, NOTIFICATION_AUTH_SECRET_JSON_KEY),
+            HTTP_SECRET_SECRET_JSON_KEY: 
+            	ecs.Secret.from_secrets_manager(sm_secret, HTTP_SECRET_SECRET_JSON_KEY),
             "AWS_SECRET_ACCESS_KEY": ecs.Secret.from_secrets_manager(secret_stored_access_key)
         }
 

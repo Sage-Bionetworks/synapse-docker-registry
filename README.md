@@ -10,8 +10,10 @@ We use the [AWS Secrets Manager](https://docs.aws.amazon.com/secretsmanager/late
 In dev the secret is named `registry-dev-DockerFargateStack/dev/ecs` and in the prod stack,
 `registry-prod-DockerFargateStack/prod/ecs`
 
-A secret is a collection of key-value pairs.  For this application there is just one pair.  The key should be `notification_auth` and the value is the
+A secret is a collection of key-value pairs.  For this application there are two pairs.  The key for the first should be `notification_auth` and the value is the
 Base64 encoded "Basic auth" credentials which are a shared-secret with Synapse as the event notification recipient.
+The key for the second should be 'http_secret' and the value is a cryptogrphically generated string for use by the
+server as described [here](https://distribution.github.io/distribution/about/configuration/).
 
 ### Registry container
 We use the open source Docker `registry`, available on DockerHub.  This container requires several configuration files to be mounted.
