@@ -120,11 +120,34 @@ class DockerFargateStack(Stack):
             build_args={"stack":context} # 'dev' or 'prod'
         )
 
+        # default ECS execution policy plus Guardduty access
+        execution_role = iam.Role(
+            self,
+            "ExecutionRole",
+            assumed_by=iam.ServicePrincipal("ecs-tasks.amazonaws.com"),
+            managed_policies=[
+                iam.ManagedPolicy.from_aws_managed_policy_name(
+                    "service-role/AmazonECSTaskExecutionRolePolicy"
+                ),
+            ],
+        )
+        execution_role.add_to_policy(
+            iam.PolicyStatement(
+                actions=[
+                    "logs:CreateLogStream",
+                    "logs:PutLogEvents",
+                ],
+                resources=["*"],
+                effect=iam.Effect.ALLOW,
+            )
+        )
+
         task_image_options = ecs_patterns.ApplicationLoadBalancedTaskImageOptions(
                    image=image,
                    environment=env_vars,
                    secrets = secrets,
-                   container_port = get_port(env))
+                   container_port = get_port(env),
+                   execution_role=execution_role)
 
         cert = cm.Certificate.from_certificate_arn(
             self,
