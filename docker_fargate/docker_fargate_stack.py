@@ -5,6 +5,7 @@ from aws_cdk import (Stack,
     aws_ecs_patterns as ecs_patterns,
     aws_elasticloadbalancingv2 as elbv2,
     aws_route53 as r53,
+    aws_apigateway as apigateway,
     aws_iam as iam,
     CfnOutput,
     Duration,
@@ -60,7 +61,7 @@ class DockerFargateStack(Stack):
         stack_prefix = f'{env.get(config.STACK_NAME_PREFIX_CONTEXT)}'
         stack_id = f'{stack_prefix}-DockerFargateStack'
         super().__init__(scope, stack_id, **kwargs)
-
+           
         # set up the bucket
         bucket_name=get_bucket_name(env)
         bucket_arn=f"arn:aws:s3:::{bucket_name}"
@@ -85,6 +86,49 @@ class DockerFargateStack(Stack):
         # give the user S3 access
         bucket.grant_read_write(user)
 
+        #-----------------------------------------------------
+        # Create an API Gateway to receive and log notifications from the registry
+        vpc_endpoint = ec2.InterfaceVpcEndpoint(self, f'{stack_id}-VpcEndpoint', 
+        	vpc=vpc, service=ec2.InterfaceVpcEndpointService(f"com.amazonaws.{self.region}.execute-api"))
+        	
+        gateway_resource_policy=iam.PolicyDocument(
+        	statements=[
+        		iam.PolicyStatement(
+        			actions =['execute-api:Invoke'],
+        			principals = [iam.StarPrincipal()],
+        			resources = ['*']
+        		)
+        	]
+        )
+        
+        api = apigateway.RestApi(self, 
+        	f'{stack_prefix}-events-collector',
+        	endpoint_configuration=apigateway.EndpointConfiguration(
+				types=[apigateway.EndpointType.REGIONAL], # TODO later update to PRIVATE
+				# https://docs.aws.amazon.com/apigateway/latest/developerguide/apigateway-private-apis.html
+				vpc_endpoints=[vpc_endpoint]
+            ),
+            policy=gateway_resource_policy,
+            deploy=True,
+            deploy_options=apigateway.StageOptions(
+            	logging_level=apigateway.MethodLoggingLevel.INFO,
+            	data_trace_enabled=True
+            )
+        )
+        # the URL for this gateway is api.url
+        
+        # This automatically returns a 204 response     
+        api.root.add_method("POST", apigateway.MockIntegration(
+    		integration_responses=[apigateway.IntegrationResponse(status_code="204")],
+        	passthrough_behavior=apigateway.PassthroughBehavior.NEVER,
+        	request_templates={
+        		"application/json": "{ \"statusCode\": 204 }"
+        	}
+        	),
+        	method_responses=[apigateway.MethodResponse(status_code="204")]
+        )
+        #-----------------------------------------------------
+
         cluster = ecs.Cluster(
             self,
             f'{stack_id}-Cluster',
@@ -104,6 +148,7 @@ class DockerFargateStack(Stack):
         env_vars = get_container_env(env)
         env_vars[BUCKET_NAME]=bucket_name
         env_vars["AWS_ACCESS_KEY_ID"]=access_key.access_key_id
+        env_vars["api_gateway_url"]=api.url
 
         # Build the container image for the registry
         # Need self-signed certificates to add to the image

@@ -47,3 +47,13 @@ notifications:
       timeout: 1m
       threshold: 1
       backoff: 30s
+    - name: LoggingApiGateway
+      disabled: false
+      url: api_gateway_url
+      headers:
+          Content-Type:
+              - application/json
+      timeout: 1m
+      threshold: 1
+      backoff: 30s
+      

@@ -12,7 +12,7 @@ In dev the secret is named `registry-dev-DockerFargateStack/dev/ecs` and in the 
 
 A secret is a collection of key-value pairs.  For this application there are two pairs.  The key for the first should be `notification_auth` and the value is the
 Base64 encoded "Basic auth" credentials which are a shared-secret with Synapse as the event notification recipient.
-The key for the second should be 'http_secret' and the value is a cryptogrphically generated string for use by the
+The key for the second should be 'http_secret' and the value is a cryptographically generated string for use by the
 server as described [here](https://distribution.github.io/distribution/about/configuration/).
 
 ### Registry container
