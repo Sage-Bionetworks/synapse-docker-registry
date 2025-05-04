@@ -89,7 +89,10 @@ class DockerFargateStack(Stack):
         #-----------------------------------------------------
         # Create an API Gateway to receive and log notifications from the registry
         vpc_endpoint = ec2.InterfaceVpcEndpoint(self, f'{stack_id}-VpcEndpoint', 
-        	vpc=vpc, service=ec2.InterfaceVpcEndpointService(f"com.amazonaws.{self.region}.execute-api"))
+        	vpc=vpc, 
+        	service=ec2.InterfaceVpcEndpointService(f"com.amazonaws.{self.region}.execute-api"),
+        	private_dns_enabled=True,
+        	subnets=ec2.SubnetSelection())
         	
         gateway_resource_policy=iam.PolicyDocument(
         	statements=[
@@ -104,7 +107,7 @@ class DockerFargateStack(Stack):
         api = apigateway.RestApi(self, 
         	f'{stack_prefix}-events-collector',
         	endpoint_configuration=apigateway.EndpointConfiguration(
-				types=[apigateway.EndpointType.REGIONAL], # TODO later update to PRIVATE
+				types=[apigateway.EndpointType.PRIVATE],
 				# https://docs.aws.amazon.com/apigateway/latest/developerguide/apigateway-private-apis.html
 				vpc_endpoints=[vpc_endpoint]
             ),
