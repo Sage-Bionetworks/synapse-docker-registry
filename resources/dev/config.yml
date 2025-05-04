@@ -56,4 +56,3 @@ notifications:
       timeout: 1m
       threshold: 1
       backoff: 30s
-      

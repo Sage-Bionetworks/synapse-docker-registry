@@ -87,7 +87,7 @@ class DockerFargateStack(Stack):
 
         # give the user S3 access
         bucket.grant_read_write(user)
-        
+
         # create an APIGateway that logs registry events to Cloudwatch Logs
         api_url = create_logging_apigateway(self, stack_prefix, stack_id, vpc)
 
@@ -209,83 +209,82 @@ class DockerFargateStack(Stack):
 # to log events to CloudWatch Logs
 #
 def create_logging_apigateway(self, stack_prefix, stack_id, vpc):
-	# Create a VPE Endpoint to let the registry reach API Gateway
-	vpc_endpoint = ec2.InterfaceVpcEndpoint(self, f'{stack_id}-VpcEndpoint', 
-		vpc=vpc, 
-		service=ec2.InterfaceVpcEndpointService(f"com.amazonaws.{self.region}.execute-api"),
-		private_dns_enabled=True,
-		subnets=ec2.SubnetSelection())
-        	
-	# Create a policy to allow invoking the API Gateway
-	# Note that the Gateway is only accessible within the VPC
-	gateway_resource_policy=iam.PolicyDocument(
-		statements=[
-		iam.PolicyStatement(
-			actions =['execute-api:Invoke'],
-			principals = [iam.StarPrincipal()],
-			resources = ['*']
-		)]
-	)
-       
-	# Create the API Gateway REST API 
-	api = apigateway.RestApi(self, 
-		f'{stack_prefix}-events-collector',
- 		endpoint_configuration=apigateway.EndpointConfiguration(
-			types=[apigateway.EndpointType.PRIVATE],
-			vpc_endpoints=[vpc_endpoint]),
-		policy=gateway_resource_policy,
-		deploy=True,
-		deploy_options=apigateway.StageOptions(
-			logging_level=apigateway.MethodLoggingLevel.INFO,
-			data_trace_enabled=True
-		)
-	)
-	# the URL for this gateway is api.url
-        
-	# Create the log group & stream to receive the event logs
-	log_group_name = f"{stack_id}-execution-logs"
-	log_group = logs.LogGroup(self, log_group_name)
-	log_stream = logs.LogStream(self, f"{stack_id}-log-stream", log_group=log_group)
-	CfnOutput(self, 'LogGroup', value=log_group.log_group_name, export_name=log_group_name)
-        
-	# Define the code for the lambda, in-line
-	# We simply log the event to Cloudwatch Logs
-	lambda_code = f"""
+    # Create a VPE Endpoint to let the registry reach API Gateway
+    vpc_endpoint = ec2.InterfaceVpcEndpoint(self, f'{stack_id}-VpcEndpoint',
+        vpc=vpc,
+        service=ec2.InterfaceVpcEndpointService(f"com.amazonaws.{self.region}.execute-api"),
+        private_dns_enabled=True,
+        subnets=ec2.SubnetSelection())
+
+    # Create a policy to allow invoking the API Gateway
+    # Note that the Gateway is only accessible within the VPC
+    gateway_resource_policy=iam.PolicyDocument(
+        statements=[
+        iam.PolicyStatement(
+            actions =['execute-api:Invoke'],
+            principals = [iam.StarPrincipal()],
+            resources = ['*']
+        )]
+    )
+
+    # Create the API Gateway REST API
+    api = apigateway.RestApi(self,
+        f'{stack_prefix}-events-collector',
+        endpoint_configuration=apigateway.EndpointConfiguration(
+            types=[apigateway.EndpointType.PRIVATE],
+            vpc_endpoints=[vpc_endpoint]),
+        policy=gateway_resource_policy,
+        deploy=True,
+        deploy_options=apigateway.StageOptions(
+            logging_level=apigateway.MethodLoggingLevel.INFO,
+            data_trace_enabled=True
+        )
+    )
+    # the URL for this gateway is api.url
+
+    # Create the log group & stream to receive the event logs
+    log_group_name = f"{stack_id}-execution-logs"
+    log_group = logs.LogGroup(self, log_group_name)
+    log_stream = logs.LogStream(self, f"{stack_id}-log-stream", log_group=log_group)
+    CfnOutput(self, 'LogGroup', value=log_group.log_group_name, export_name=log_group_name)
+
+    # Define the code for the lambda, in-line
+    # We simply log the event to Cloudwatch Logs
+    lambda_code = f"""
 import boto3, json, time
 def handler(event, context):
-	client = boto3.client('logs')
-	headers = event.get('multiValueHeaders',{{}})
-	body = json.loads(event.get('body',{{}}))
-	content_to_log={{'headers':headers,'body':body}}
-	message = json.dumps(content_to_log)
-	milliseconds = int(round(time.time() * 1000))
-	client.put_log_events(
-		logGroupName='{log_group.log_group_name}', 
-		logStreamName='{log_stream.log_stream_name}', 
-		logEvents=[{{'timestamp':milliseconds,'message':message}}])
-	return {{'statusCode': 204}}
+    client = boto3.client('logs')
+    headers = event.get('multiValueHeaders',{{}})
+    body = json.loads(event.get('body',{{}}))
+    content_to_log={{'headers':headers,'body':body}}
+    message = json.dumps(content_to_log)
+    milliseconds = int(round(time.time() * 1000))
+    client.put_log_events(
+        logGroupName='{log_group.log_group_name}',
+        logStreamName='{log_stream.log_stream_name}',
+        logEvents=[{{'timestamp':milliseconds,'message':message}}])
+    return {{'statusCode': 204}}
 """
 
-	# Define the lambda function that runs the code
-	lambda_function = aws_lambda.Function(self, "Function",
-		runtime=aws_lambda.Runtime.PYTHON_3_9,
- 		handler="index.handler",
-		code=aws_lambda.InlineCode(lambda_code)
-	)
-        
-	# Create a policy to allow the lambda to put logs to Cloudwatch Logs
-	lambda_function.add_to_role_policy(
-		iam.PolicyStatement(
-			actions=["logs:*"],
-			resources=[log_group.log_group_arn]
-		)
-	)
-        
-	# Finally, connect the API Gateway to the lambda function
-	api.root.add_method(
-		"POST", 
-		apigateway.LambdaIntegration(lambda_function),
-		method_responses=[apigateway.MethodResponse(status_code="204")]
-	)
-	return api.url
+    # Define the lambda function that runs the code
+    lambda_function = aws_lambda.Function(self, "Function",
+        runtime=aws_lambda.Runtime.PYTHON_3_9,
+        handler="index.handler",
+        code=aws_lambda.InlineCode(lambda_code)
+    )
 
+    # Create a policy to allow the lambda to put logs to Cloudwatch Logs
+    lambda_function.add_to_role_policy(
+        iam.PolicyStatement(
+            actions=["logs:*"],
+            resources=[log_group.log_group_arn]
+        )
+    )
+
+    # Finally, connect the API Gateway to the lambda function
+    api.root.add_method(
+        "POST",
+        apigateway.LambdaIntegration(lambda_function),
+        method_responses=[apigateway.MethodResponse(status_code="204")]
+    )
+    return api.url
