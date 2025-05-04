@@ -63,7 +63,7 @@ class DockerFargateStack(Stack):
         stack_prefix = f'{env.get(config.STACK_NAME_PREFIX_CONTEXT)}'
         stack_id = f'{stack_prefix}-DockerFargateStack'
         super().__init__(scope, stack_id, **kwargs)
-           
+
         # set up the bucket
         bucket_name=get_bucket_name(env)
         bucket_arn=f"arn:aws:s3:::{bucket_name}"
@@ -216,8 +216,8 @@ def create_logging_apigateway(self, stack_prefix, stack_id, vpc):
 		private_dns_enabled=True,
 		subnets=ec2.SubnetSelection())
         	
-    # Create a policy to allow invoking the API Gateway
-    # Note that the Gateway is only accessible within the VPC
+	# Create a policy to allow invoking the API Gateway
+	# Note that the Gateway is only accessible within the VPC
 	gateway_resource_policy=iam.PolicyDocument(
 		statements=[
 		iam.PolicyStatement(
@@ -227,7 +227,7 @@ def create_logging_apigateway(self, stack_prefix, stack_id, vpc):
 		)]
 	)
        
-    # Create the API Gateway REST API 
+	# Create the API Gateway REST API 
 	api = apigateway.RestApi(self, 
 		f'{stack_prefix}-events-collector',
  		endpoint_configuration=apigateway.EndpointConfiguration(
@@ -248,8 +248,8 @@ def create_logging_apigateway(self, stack_prefix, stack_id, vpc):
 	log_stream = logs.LogStream(self, f"{stack_id}-log-stream", log_group=log_group)
 	CfnOutput(self, 'LogGroup', value=log_group.log_group_name, export_name=log_group_name)
         
-    # Define the code for the lambda, in-line
-    # We simply log the event to Cloudwatch Logs
+	# Define the code for the lambda, in-line
+	# We simply log the event to Cloudwatch Logs
 	lambda_code = f"""
 import boto3, json, time
 def handler(event, context):
@@ -266,14 +266,14 @@ def handler(event, context):
 	return {{'statusCode': 204}}
 """
 
-    # Define the lambda function that runs the code
+	# Define the lambda function that runs the code
 	lambda_function = aws_lambda.Function(self, "Function",
 		runtime=aws_lambda.Runtime.PYTHON_3_9,
  		handler="index.handler",
 		code=aws_lambda.InlineCode(lambda_code)
 	)
         
-    # Create a policy to allow the lambda to put logs to Cloudwatch Logs
+	# Create a policy to allow the lambda to put logs to Cloudwatch Logs
 	lambda_function.add_to_role_policy(
 		iam.PolicyStatement(
 			actions=["logs:*"],
@@ -281,7 +281,7 @@ def handler(event, context):
 		)
 	)
         
-    # Finally, connect the API Gateway to the lambda function
+	# Finally, connect the API Gateway to the lambda function
 	api.root.add_method(
 		"POST", 
 		apigateway.LambdaIntegration(lambda_function),
