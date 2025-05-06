@@ -246,7 +246,7 @@ def handler(event, context):
 
     # Define the lambda function that runs the code
     lambda_function = aws_lambda.Function(self, "Function",
-        runtime=aws_lambda.Runtime.PYTHON_3_9,
+        runtime=aws_lambda.Runtime.PYTHON_3_13,
         handler="index.handler",
         code=aws_lambda.InlineCode(lambda_code)
     )
