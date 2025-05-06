@@ -12,7 +12,7 @@ except Exception as err:
   raise SystemExit(err)
 
 vpc_stack = VpcStack(app, context, app_config)
-docker_fargate_stack = DockerFargateStack(app, context, app_config, vpc=vpc_stack.vpc)
+docker_fargate_stack = DockerFargateStack(app, context, app_config, vpc=vpc_stack.vpc, vpc_endpoint=vpc_stack.vpc_endpoint)
 docker_fargate_stack.add_dependency(vpc_stack)
 
 app.synth()
