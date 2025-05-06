@@ -59,7 +59,7 @@ def get_port(env: dict) -> int:
 
 class DockerFargateStack(Stack):
 
-    def __init__(self, scope: Construct, context: str, env: dict, vpc: ec2.Vpc, **kwargs) -> None:
+    def __init__(self, scope: Construct, context: str, env: dict, vpc: ec2.Vpc, vpc_endpoint: ec2.InterfaceVpcEndpoint, **kwargs) -> None:
         stack_prefix = f'{env.get(config.STACK_NAME_PREFIX_CONTEXT)}'
         stack_id = f'{stack_prefix}-DockerFargateStack'
         super().__init__(scope, stack_id, **kwargs)
@@ -89,7 +89,7 @@ class DockerFargateStack(Stack):
         bucket.grant_read_write(user)
 
         # create an APIGateway that logs registry events to Cloudwatch Logs
-        api_url = create_logging_apigateway(self, stack_prefix, stack_id, vpc)
+        api_url = create_logging_apigateway(self, stack_prefix, stack_id, vpc_endpoint)
 
         cluster = ecs.Cluster(
             self,
@@ -208,14 +208,7 @@ class DockerFargateStack(Stack):
 # Create an API Gateway that the registry can call by its URL
 # to log events to CloudWatch Logs
 #
-def create_logging_apigateway(self, stack_prefix, stack_id, vpc):
-    # Create a VPE Endpoint to let the registry reach API Gateway
-    vpc_endpoint = ec2.InterfaceVpcEndpoint(self, f'{stack_id}-VpcEndpoint',
-        vpc=vpc,
-        service=ec2.InterfaceVpcEndpointService(f"com.amazonaws.{self.region}.execute-api"),
-        private_dns_enabled=True,
-        subnets=ec2.SubnetSelection())
-
+def create_logging_apigateway(self, stack_prefix, stack_id, vpc_endpoint):
     # Create a policy to allow invoking the API Gateway
     # Note that the Gateway is only accessible within the VPC
     gateway_resource_policy=iam.PolicyDocument(
@@ -227,24 +220,9 @@ def create_logging_apigateway(self, stack_prefix, stack_id, vpc):
         )]
     )
 
-    # Create the API Gateway REST API
-    api = apigateway.RestApi(self,
-        f'{stack_prefix}-events-collector',
-        endpoint_configuration=apigateway.EndpointConfiguration(
-            types=[apigateway.EndpointType.PRIVATE],
-            vpc_endpoints=[vpc_endpoint]),
-        policy=gateway_resource_policy,
-        deploy=True,
-        deploy_options=apigateway.StageOptions(
-            logging_level=apigateway.MethodLoggingLevel.INFO,
-            data_trace_enabled=True
-        )
-    )
-    # the URL for this gateway is api.url
-
     # Create the log group & stream to receive the event logs
     log_group_name = f"{stack_id}-execution-logs"
-    log_group = logs.LogGroup(self, log_group_name)
+    log_group = logs.LogGroup(self, log_group_name, retention=logs.RetentionDays.SIX_MONTHS)
     log_stream = logs.LogStream(self, f"{stack_id}-log-stream", log_group=log_group)
     CfnOutput(self, 'LogGroup', value=log_group.log_group_name, export_name=log_group_name)
 
@@ -252,8 +230,8 @@ def create_logging_apigateway(self, stack_prefix, stack_id, vpc):
     # We simply log the event to Cloudwatch Logs
     lambda_code = f"""
 import boto3, json, time
+client = boto3.client('logs')
 def handler(event, context):
-    client = boto3.client('logs')
     headers = event.get('multiValueHeaders',{{}})
     body = json.loads(event.get('body',{{}}))
     content_to_log={{'headers':headers,'body':body}}
@@ -268,7 +246,7 @@ def handler(event, context):
 
     # Define the lambda function that runs the code
     lambda_function = aws_lambda.Function(self, "Function",
-        runtime=aws_lambda.Runtime.PYTHON_3_9,
+        runtime=aws_lambda.Runtime.PYTHON_3_13,
         handler="index.handler",
         code=aws_lambda.InlineCode(lambda_code)
     )
@@ -281,10 +259,15 @@ def handler(event, context):
         )
     )
 
-    # Finally, connect the API Gateway to the lambda function
-    api.root.add_method(
-        "POST",
-        apigateway.LambdaIntegration(lambda_function),
-        method_responses=[apigateway.MethodResponse(status_code="204")]
+    # Create the Lambda-integrated API Gateway
+    api = apigateway.LambdaRestApi(self,
+        f'{stack_prefix}-events-collector',
+        handler=lambda_function,
+        endpoint_configuration=apigateway.EndpointConfiguration(
+            types=[apigateway.EndpointType.PRIVATE],
+            vpc_endpoints=[vpc_endpoint]),
+        policy=gateway_resource_policy
     )
+    # the URL for this gateway is api.url
+
     return api.url
