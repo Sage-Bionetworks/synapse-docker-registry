@@ -18,6 +18,13 @@ class VpcStack(Stack):
                            cidr=env.get(VPC_CIDR_CONTEXT),
                            max_azs=2)
 
+        # Create a VPE Endpoint to let the registry reach API Gateway
+        self.vpc_endpoint = ec2.InterfaceVpcEndpoint(self, f'{stack_id}-VpcEndpoint',
+            vpc=self.vpc,
+            service=ec2.InterfaceVpcEndpointService(f"com.amazonaws.{self.region}.execute-api"),
+            private_dns_enabled=True,
+            subnets=ec2.SubnetSelection())
+
         # Tag all resources in this Stack's scope with context tags
         for key, value in env.get(config.TAGS_CONTEXT).items():
             Tags.of(scope).add(key, value)
