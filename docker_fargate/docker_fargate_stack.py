@@ -266,7 +266,10 @@ def handler(event, context):
         endpoint_configuration=apigateway.EndpointConfiguration(
             types=[apigateway.EndpointType.PRIVATE],
             vpc_endpoints=[vpc_endpoint]),
-        policy=gateway_resource_policy
+        policy=gateway_resource_policy,
+        deploy_options=apigateway.StageOptions(
+            logging_level=apigateway.MethodLoggingLevel.ERROR
+        )
     )
     # the URL for this gateway is api.url
 
