@@ -9,6 +9,7 @@ from aws_cdk import (Stack,
     aws_iam as iam,
     aws_lambda,
     aws_logs as logs,
+    aws_wafv2 as wafv2,
     CfnOutput,
     Duration,
     Tags)
@@ -18,6 +19,8 @@ import aws_cdk.aws_certificatemanager as cm
 import aws_cdk.aws_secretsmanager as sm
 from constructs import Construct
 from docker_fargate.generate_ssl_cert import cert_gen
+from common.vpc_stack import get_account_id
+from common.vpc_stack import get_region
 
 from aws_cdk.aws_ecr_assets import Platform
 
@@ -57,12 +60,15 @@ def get_docker_image_name(env: dict):
 def get_port(env: dict) -> int:
     return int(env.get(PORT_NUMBER_CONTEXT))
 
+
 class DockerFargateStack(Stack):
 
     def __init__(self, scope: Construct, context: str, env: dict, vpc: ec2.Vpc, vpc_endpoint: ec2.InterfaceVpcEndpoint, **kwargs) -> None:
         stack_prefix = f'{env.get(config.STACK_NAME_PREFIX_CONTEXT)}'
         stack_id = f'{stack_prefix}-DockerFargateStack'
-        super().__init__(scope, stack_id, **kwargs)
+        region=get_region(env)
+        account_id=get_account_id(env)
+        super().__init__(scope, stack_id, env={"account":account_id,"region":region}, **kwargs)
 
         # set up the bucket
         bucket_name=get_bucket_name(env)
@@ -179,6 +185,70 @@ class DockerFargateStack(Stack):
             protocol=elbv2.ApplicationProtocol.HTTPS,
             ssl_policy=elbv2.SslPolicy.FORWARD_SECRECY_TLS12_RES # Strong forward secrecy ciphers and TLS1.2 only.
         )
+        
+        # Add access logging
+        log_bucket = s3.Bucket(self,
+          f'{stack_prefix}-access-logs.sagebase.org',
+          block_public_access=s3.BlockPublicAccess.BLOCK_ALL,
+          encryption=s3.BucketEncryption.S3_MANAGED,
+          enforce_ssl=True, 
+          minimum_tls_version=1.2,
+          lifecycle_rules=[s3.LifecycleRule(
+            expiration=Duration.days(90) # delete logs after 90 days
+          )]
+        )
+        load_balanced_fargate_service.load_balancer.log_access_logs(log_bucket)
+        
+        # Add a WebACL
+        web_acl = wafv2.CfnWebACL(
+        	self, 
+        	f'{stack_prefix}-web-acl',
+        	default_action=wafv2.CfnWebACL.DefaultActionProperty(allow={}),
+        	scope="REGIONAL",
+        	visibility_config=wafv2.CfnWebACL.VisibilityConfigProperty(
+        		cloud_watch_metrics_enabled=True,
+        		metric_name=f'{stack_prefix}-waf',
+        		sampled_requests_enabled=False
+        		),
+        	name=f'{stack_prefix}-web-acl',
+        	# From https://docs.aws.amazon.com/waf/latest/developerguide/aws-managed-rule-groups-baseline.html
+        	# The core rule set (CRS) rule group contains rules that are generally applicable 
+        	# to web applications. This provides protection against exploitation of a wide range of 
+        	# vulnerabilities, including some of the high risk and commonly occurring vulnerabilities 
+        	# described in OWASP publications such as OWASP Top 10. Consider using this rule group for 
+        	# any AWS WAF use case.
+            rules=[wafv2.CfnWebACL.RuleProperty(
+              name="AWS-AWSManagedRulesCommonRuleSet",
+              priority=0,
+              statement=wafv2.CfnWebACL.StatementProperty(
+                managed_rule_group_statement=wafv2.CfnWebACL.ManagedRuleGroupStatementProperty(
+                  vendor_name="AWS", name="AWSManagedRulesCommonRuleSet",
+                  rule_action_overrides=[
+                    # The following rules need to be disabled, since they break the Docker registry
+                    wafv2.CfnWebACL.RuleActionOverrideProperty(
+                      # blocks request bodies > 8KB
+                      name="GenericLFI_QUERYARGUMENTS",
+                      action_to_use=wafv2.CfnWebACL.RuleActionProperty(allow={})
+                    ),
+                    wafv2.CfnWebACL.RuleActionOverrideProperty(
+                      # Inspects for the presence of Local File Inclusion (LFI) exploits in the query arguments.
+                      name="GenericLFI_QUERYARGUMENTSH",
+                      action_to_use=wafv2.CfnWebACL.RuleActionProperty(allow={})
+                    ),
+                  ]
+                )
+              ),
+              override_action=wafv2.CfnWebACL.OverrideActionProperty(count={}),
+              visibility_config=wafv2.CfnWebACL.VisibilityConfigProperty(
+                sampled_requests_enabled=True,
+                cloud_watch_metrics_enabled=True,
+                metric_name=f'{stack_prefix}-AWSManagedRulesCommonRuleSet',
+              ),
+            )]
+        )
+        wafv2.CfnWebACLAssociation(self, f'{stack_prefix}-CfnWebACLAssociation', 
+         resource_arn=load_balanced_fargate_service.load_balancer.load_balancer_arn,
+         web_acl_arn=web_acl.attr_arn)
 
         scalable_target = load_balanced_fargate_service.service.auto_scale_task_count(
            min_capacity=2, # Minimum capacity to scale to. Default: 1
