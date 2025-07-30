@@ -227,7 +227,7 @@ class DockerFargateStack(Stack):
                     # The following rules need to be disabled, since they break the Docker registry
                     wafv2.CfnWebACL.RuleActionOverrideProperty(
                       # blocks request bodies > 8KB
-                      name="GenericLFI_QUERYARGUMENTS",
+                      name="SizeRestrictions_BODY",
                       action_to_use=wafv2.CfnWebACL.RuleActionProperty(allow={})
                     ),
                     wafv2.CfnWebACL.RuleActionOverrideProperty(
