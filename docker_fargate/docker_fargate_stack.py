@@ -185,38 +185,38 @@ class DockerFargateStack(Stack):
             protocol=elbv2.ApplicationProtocol.HTTPS,
             ssl_policy=elbv2.SslPolicy.FORWARD_SECRECY_TLS12_RES # Strong forward secrecy ciphers and TLS1.2 only.
         )
-        
+
         # Add access logging
         log_bucket = s3.Bucket(self,
           f'{stack_prefix}-access-logs.sagebase.org',
           block_public_access=s3.BlockPublicAccess.BLOCK_ALL,
           encryption=s3.BucketEncryption.S3_MANAGED,
-          enforce_ssl=True, 
+          enforce_ssl=True,
           minimum_tls_version=1.2,
           lifecycle_rules=[s3.LifecycleRule(
             expiration=Duration.days(90) # delete logs after 90 days
           )]
         )
         load_balanced_fargate_service.load_balancer.log_access_logs(log_bucket)
-        
+
         # Add a WebACL
         web_acl = wafv2.CfnWebACL(
-        	self, 
-        	f'{stack_prefix}-web-acl',
-        	default_action=wafv2.CfnWebACL.DefaultActionProperty(allow={}),
-        	scope="REGIONAL",
-        	visibility_config=wafv2.CfnWebACL.VisibilityConfigProperty(
-        		cloud_watch_metrics_enabled=True,
-        		metric_name=f'{stack_prefix}-waf',
-        		sampled_requests_enabled=False
-        		),
-        	name=f'{stack_prefix}-web-acl',
-        	# From https://docs.aws.amazon.com/waf/latest/developerguide/aws-managed-rule-groups-baseline.html
-        	# The core rule set (CRS) rule group contains rules that are generally applicable 
-        	# to web applications. This provides protection against exploitation of a wide range of 
-        	# vulnerabilities, including some of the high risk and commonly occurring vulnerabilities 
-        	# described in OWASP publications such as OWASP Top 10. Consider using this rule group for 
-        	# any AWS WAF use case.
+            self,
+            f'{stack_prefix}-web-acl',
+            default_action=wafv2.CfnWebACL.DefaultActionProperty(allow={}),
+            scope="REGIONAL",
+            visibility_config=wafv2.CfnWebACL.VisibilityConfigProperty(
+                cloud_watch_metrics_enabled=True,
+                metric_name=f'{stack_prefix}-waf',
+                sampled_requests_enabled=False
+                ),
+            name=f'{stack_prefix}-web-acl',
+            # From https://docs.aws.amazon.com/waf/latest/developerguide/aws-managed-rule-groups-baseline.html
+            # The core rule set (CRS) rule group contains rules that are generally applicable
+            # to web applications. This provides protection against exploitation of a wide range of
+            # vulnerabilities, including some of the high risk and commonly occurring vulnerabilities
+            # described in OWASP publications such as OWASP Top 10. Consider using this rule group for
+            # any AWS WAF use case.
             rules=[wafv2.CfnWebACL.RuleProperty(
               name="AWS-AWSManagedRulesCommonRuleSet",
               priority=0,
@@ -246,7 +246,7 @@ class DockerFargateStack(Stack):
               ),
             )]
         )
-        wafv2.CfnWebACLAssociation(self, f'{stack_prefix}-CfnWebACLAssociation', 
+        wafv2.CfnWebACLAssociation(self, f'{stack_prefix}-CfnWebACLAssociation',
          resource_arn=load_balanced_fargate_service.load_balancer.load_balancer_arn,
          web_acl_arn=web_acl.attr_arn)
 
