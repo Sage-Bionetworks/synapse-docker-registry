@@ -19,7 +19,6 @@ import aws_cdk.aws_certificatemanager as cm
 import aws_cdk.aws_secretsmanager as sm
 from constructs import Construct
 from docker_fargate.generate_ssl_cert import cert_gen
-from common.vpc_stack import get_account_id
 from common.vpc_stack import get_region
 
 from aws_cdk.aws_ecr_assets import Platform
@@ -67,8 +66,7 @@ class DockerFargateStack(Stack):
         stack_prefix = f'{env.get(config.STACK_NAME_PREFIX_CONTEXT)}'
         stack_id = f'{stack_prefix}-DockerFargateStack'
         region=get_region(env)
-        account_id=get_account_id(env)
-        super().__init__(scope, stack_id, env={"account":account_id,"region":region}, **kwargs)
+        super().__init__(scope, stack_id, env={"region":region}, **kwargs)
 
         # set up the bucket
         bucket_name=get_bucket_name(env)
@@ -232,7 +230,7 @@ class DockerFargateStack(Stack):
                     ),
                     wafv2.CfnWebACL.RuleActionOverrideProperty(
                       # Inspects for the presence of Local File Inclusion (LFI) exploits in the query arguments.
-                      name="GenericLFI_QUERYARGUMENTSH",
+                      name="GenericLFI_QUERYARGUMENTS",
                       action_to_use=wafv2.CfnWebACL.RuleActionProperty(allow={})
                     ),
                   ]
