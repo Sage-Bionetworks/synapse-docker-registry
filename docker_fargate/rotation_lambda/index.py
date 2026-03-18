@@ -10,6 +10,10 @@ logger.setLevel(logging.INFO)
 
 def handler(event, context):
     secret_arn = event['SecretId']
+    # When Secrets Manager initiates a rotation, it first creates a new pending version of
+    # the secret — a placeholder slot that will hold the new credential once the rotation
+    # Lambda writes it. Secrets Manager generates a UUID to identify that new version,
+    # and passes it to the Lambda as ClientRequestToken.
     token = event['ClientRequestToken']
     step = event['Step']
 
