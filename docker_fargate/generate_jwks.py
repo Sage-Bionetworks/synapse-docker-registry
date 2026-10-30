@@ -19,7 +19,7 @@ from cryptography.hazmat.primitives.asymmetric import ec
 # base32 encoded and split into colon separated groups of four characters
 #
 # Note: The important thing about this key ID is that it's exactly what Synapse uses.
-# In Synapse the libtrust algorithm is implemented in Java in 
+# In Synapse the libtrust algorithm is implemented in Java in
 # org.sagebionetworks.repo.managerKeyPairUtil.computeKeyId()
 #
 #
