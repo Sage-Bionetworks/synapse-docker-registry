@@ -3,13 +3,14 @@
 # suitable for using with Synapse
 #
 #
-FROM registry:2
+FROM registry:3
 # stack is dev or prod
 ARG stack=dev
 
 # switches between 'dev' and 'prod'
 COPY resources/${stack}/config.yml /etc/docker/registry/config.yml
-COPY resources/${stack}/token_signing_key_public_cert.pem /etc/docker/registry/token_signing_key_public_cert.pem
+# generated from resources/${stack}/token_signing_key_public_cert.pem during 'cdk synth'
+COPY resources/${stack}/token_signing_jwks.json /etc/docker/registry/token_signing_jwks.json
 # the self-signed cert' and private key should be generated before running 'docker build'
 # see the github workflow for an example of how to do this
 COPY privatekey.pem /etc/docker/registry/ssl/privatekey.pem

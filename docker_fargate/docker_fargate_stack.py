@@ -26,6 +26,7 @@ import aws_cdk.aws_certificatemanager as cm
 import aws_cdk.aws_secretsmanager as sm
 from constructs import Construct
 from docker_fargate.generate_ssl_cert import cert_gen
+from docker_fargate.generate_jwks import jwks_gen
 from common.vpc_stack import get_region
 
 from aws_cdk.aws_ecr_assets import Platform
@@ -40,6 +41,9 @@ CONTAINER_ENV_NAME = "CONTAINER_ENV"
 
 PRIVATE_KEY_FILE_NAME = "privatekey.pem"
 CERTIFICATE_FILE_NAME = "certificate.pem"
+
+TOKEN_SIGNING_CERT_FILE_NAME = "resources/{}/token_signing_key_public_cert.pem"
+TOKEN_SIGNING_JWKS_FILE_NAME = "resources/{}/token_signing_jwks.json"
 
 BUCKET_NAME = "BUCKET_NAME"
 
@@ -135,6 +139,11 @@ class DockerFargateStack(Stack):
           f.write(key_and_cert["private_key"])
         with open(CERTIFICATE_FILE_NAME, "wt") as f:
           f.write(key_and_cert["certificate"])
+        # The registry verifies Synapse's tokens with a JWK Set derived from Synapse's token signing cert'
+        with open(TOKEN_SIGNING_CERT_FILE_NAME.format(context), "rb") as f:
+          jwks = jwks_gen(f.read())
+        with open(TOKEN_SIGNING_JWKS_FILE_NAME.format(context), "wt") as f:
+          f.write(jwks)
         # Now build the image, using the self-signed cert and key
         image = ecs.ContainerImage.from_asset(
             directory=".",
