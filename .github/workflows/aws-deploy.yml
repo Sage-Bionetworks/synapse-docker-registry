@@ -36,7 +36,10 @@ jobs:
 
       - name: cdk deploy
         uses: youyo/aws-cdk-github-actions@v2
+        env:
+          # jsii refuses the package cache in /github/home, which the container (uid 0) doesn't own
+          JSII_RUNTIME_PACKAGE_CACHE: disabled
         with:
           cdk_subcommand: 'deploy'
-          cdk_args: '--require-approval never -c env=${{ inputs.CONTEXT }} -c JSII_RUNTIME_PACKAGE_CACHE=disabled --progress events --debug'
+          cdk_args: '--require-approval never -c env=${{ inputs.CONTEXT }} --progress events --debug'
           actions_comment: false

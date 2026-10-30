@@ -18,6 +18,11 @@ from cryptography.hazmat.primitives.asymmetric import ec
 # The libtrust key ID: the first 240 bits of the SHA-256 of the DER encoded public key,
 # base32 encoded and split into colon separated groups of four characters
 #
+# Note: The important thing about this key ID is that it's exactly what Synapse uses.
+# In Synapse the libtrust algorithm is implemented in Java in 
+# org.sagebionetworks.repo.managerKeyPairUtil.computeKeyId()
+#
+#
 def libtrust_key_id(public_key):
     der = public_key.public_bytes(
         serialization.Encoding.DER, serialization.PublicFormat.SubjectPublicKeyInfo)
