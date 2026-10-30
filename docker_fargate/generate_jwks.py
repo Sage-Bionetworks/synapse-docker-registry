@@ -20,7 +20,7 @@ from cryptography.hazmat.primitives.asymmetric import ec
 #
 # Note: The important thing about this key ID is that it's exactly what Synapse uses.
 # In Synapse the libtrust algorithm is implemented in Java in
-# org.sagebionetworks.repo.managerKeyPairUtil.computeKeyId()
+# org.sagebionetworks.repo.manager.KeyPairUtil.computeKeyId()
 #
 #
 def libtrust_key_id(public_key):
