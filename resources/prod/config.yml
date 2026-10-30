@@ -34,7 +34,10 @@ auth:
         realm: https://repo-prod.prod.sagebase.org/docker/v1/bearerToken
         service: docker.synapse.org
         issuer: www.synapse.org
-        rootcertbundle: /etc/docker/registry/token_signing_key_public_cert.pem
+        # This block maps your token header 'kid' to the actual file on disk
+        keys:
+        - id: 2MTZ:QH2X:J57H:MV5O:62AZ:QNI3:OMW3:FZVO:KDD6:CQMC:TO6H:64S
+          path: /etc/docker/registry/token_signing_key_public_cert.pem
 
 notifications:
     endpoints:

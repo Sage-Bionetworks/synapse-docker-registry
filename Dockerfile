@@ -3,7 +3,7 @@
 # suitable for using with Synapse
 #
 #
-FROM registry:2
+FROM registry:3
 # stack is dev or prod
 ARG stack=dev
 
