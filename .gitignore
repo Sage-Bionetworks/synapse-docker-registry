@@ -146,3 +146,8 @@ cdk.out/
 # locally generated self-signed certificate-key pair
 certificate.pem
 privatekey.pem
+
+# JWK Set generated from the token signing cert during cdk synth
+resources/*/token_signing_jwks.json
+
+cdk.context.json

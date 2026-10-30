@@ -34,10 +34,9 @@ auth:
         realm: https://repo-dev.dev.sagebase.org/docker/v1/bearerToken
         service: docker-staging.dev.sagebase.org
         issuer: www.synapse.org
-        # This block maps your token header 'kid' to the actual file on disk
-        keys:
-        - id: CC4F:YEUW:NYJE:6XDF:XG7U:DBOB:4P6E:PFZU:UXFA:JCPC:7EVP:IAM
-          path: /etc/docker/registry/token_signing_key_public_cert.pem
+        # JWK Set derived from token_signing_key_public_cert.pem during 'cdk synth',
+        # publishing the key under the libtrust-style 'kid' that Synapse's tokens carry
+        jwks: /etc/docker/registry/token_signing_jwks.json
 
 notifications:
     endpoints:
