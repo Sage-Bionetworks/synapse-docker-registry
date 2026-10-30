@@ -38,5 +38,5 @@ jobs:
         uses: youyo/aws-cdk-github-actions@v2
         with:
           cdk_subcommand: 'deploy'
-          cdk_args: '--require-approval never --context env=${{ inputs.CONTEXT }} --progress events --debug'
+          cdk_args: '--require-approval never -c env=${{ inputs.CONTEXT }} -c JSII_RUNTIME_PACKAGE_CACHE=disabled --progress events --debug'
           actions_comment: false

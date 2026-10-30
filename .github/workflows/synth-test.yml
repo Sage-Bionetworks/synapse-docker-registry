@@ -20,4 +20,4 @@ jobs:
         with:
           cdk_subcommand: 'synth'
           actions_comment: false
-          cdk_args: '--context env=${{ inputs.CONTEXT }} --debug'
+          cdk_args: '-c env=${{ inputs.CONTEXT }} -c JSII_RUNTIME_PACKAGE_CACHE=disabled --debug'
