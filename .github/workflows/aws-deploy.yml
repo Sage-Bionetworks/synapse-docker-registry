@@ -50,4 +50,4 @@ jobs:
           npm install -g aws-cdk
 
       - name: cdk deploy
-        run: cdk deploy --require-approval never --context env=${{ inputs.CONTEXT }} --progress events --debug
+        run: cdk deploy --all --require-approval never --context env=${{ inputs.CONTEXT }} --progress events --debug

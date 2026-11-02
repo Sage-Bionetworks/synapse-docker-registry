@@ -31,4 +31,4 @@ jobs:
           npm install -g aws-cdk
 
       - name: cdk synth
-        run: cdk synth --context env=${{ inputs.CONTEXT }} --debug
+        run: cdk synth --all --context env=${{ inputs.CONTEXT }} --debug
