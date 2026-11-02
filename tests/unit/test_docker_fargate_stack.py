@@ -74,3 +74,42 @@ def test_target_response_time_alarm_created():
         "AlarmActions": NOTIFICATION_TOPIC,
         "OKActions": NOTIFICATION_TOPIC,
     })
+
+def test_bucket_intelligent_tiering_lifecycle_rule():
+    template = synth_template()
+
+    resources = template.find_resources("Custom::AWS")
+    create_calls = [str(r["Properties"]["Create"]) for r in resources.values()]
+    assert any(
+        "putBucketLifecycleConfiguration" in c and "INTELLIGENT_TIERING" in c and "test-bucket" in c
+        for c in create_calls
+    )
+
+    template.has_resource_properties("AWS::IAM::Policy", {
+        "PolicyDocument": {
+            "Statement": assertions.Match.array_with([
+                assertions.Match.object_like({
+                    "Action": "s3:PutLifecycleConfiguration",
+                    "Effect": "Allow",
+                    "Resource": "arn:aws:s3:::test-bucket",
+                })
+            ])
+        }
+    })
+
+def test_execute_command_enabled():
+    template = synth_template()
+
+    template.has_resource_properties("AWS::ECS::Service", {
+        "EnableExecuteCommand": True,
+    })
+    template.has_resource_properties("AWS::IAM::Policy", {
+        "PolicyDocument": {
+            "Statement": assertions.Match.array_with([
+                assertions.Match.object_like({
+                    "Action": assertions.Match.array_with(["ssmmessages:CreateControlChannel"]),
+                    "Effect": "Allow",
+                })
+            ])
+        }
+    })

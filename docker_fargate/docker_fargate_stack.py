@@ -15,6 +15,7 @@ from aws_cdk import (Stack,
     aws_cloudwatch as cloudwatch,
     aws_cloudwatch_actions as cw_actions,
     aws_sns as sns,
+    custom_resources as cr,
     CfnOutput,
     Duration,
     Fn,
@@ -83,6 +84,41 @@ class DockerFargateStack(Stack):
         bucket_name=get_bucket_name(env)
         bucket_arn=f"arn:aws:s3:::{bucket_name}"
         bucket=s3.Bucket.from_bucket_attributes(self, id=bucket_name, bucket_arn=bucket_arn)
+
+        # Transition all objects in the (imported, not CDK-managed) bucket to
+        # Intelligent-Tiering, including objects that already exist.
+        # Note: PutBucketLifecycleConfiguration replaces the bucket's ENTIRE
+        # lifecycle configuration, so any other lifecycle rules for this bucket
+        # must be added here rather than in the console.
+        lifecycle_call = cr.AwsSdkCall(
+            service="S3",
+            action="putBucketLifecycleConfiguration",
+            parameters={
+                "Bucket": bucket_name,
+                "LifecycleConfiguration": {"Rules": [{
+                    "ID": "IntelligentTiering",
+                    "Status": "Enabled",
+                    "Filter": {"Prefix": ""},
+                    "Transitions": [{"Days": 0, "StorageClass": "INTELLIGENT_TIERING"}],
+                }]},
+            },
+            physical_resource_id=cr.PhysicalResourceId.of(f"{bucket_name}-intelligent-tiering"),
+        )
+        cr.AwsCustomResource(self, "RegistryBucketIntelligentTiering",
+            on_create=lifecycle_call,
+            on_update=lifecycle_call,
+            on_delete=cr.AwsSdkCall(
+                service="S3",
+                action="deleteBucketLifecycle",
+                parameters={"Bucket": bucket_name},
+            ),
+            # s3:PutLifecycleConfiguration is the IAM action for both the put and
+            # delete calls; from_sdk_calls would derive a nonexistent action name
+            policy=cr.AwsCustomResourcePolicy.from_statements([
+                iam.PolicyStatement(actions=["s3:PutLifecycleConfiguration"], resources=[bucket_arn]),
+            ]),
+            install_latest_aws_sdk=False,
+        )
 
         #
         # Docker Registry cannot access the task role provided by
@@ -193,6 +229,7 @@ class DockerFargateStack(Stack):
             cpu=2048,                   # Default is 256
             desired_count=2,            # Number of copies of the 'task' (i.e. the app') running behind the ALB
             circuit_breaker=ecs.DeploymentCircuitBreaker(rollback=True), # Enable rollback on deployment failure
+            enable_execute_command=True, # Allow 'aws ecs execute-command' (adds ssmmessages permissions to the task role)
             task_image_options=task_image_options,
             memory_limit_mib=4096,      # Default is 512
             public_load_balancer=True,  # Default is False
