@@ -12,8 +12,13 @@ from aws_cdk import (Stack,
     aws_wafv2 as wafv2,
     aws_events as events,
     aws_events_targets as targets,
+    aws_cloudwatch as cloudwatch,
+    aws_cloudwatch_actions as cw_actions,
+    aws_sns as sns,
+    custom_resources as cr,
     CfnOutput,
     Duration,
+    Fn,
     SecretValue,
     Tags)
 
@@ -22,6 +27,7 @@ import aws_cdk.aws_certificatemanager as cm
 import aws_cdk.aws_secretsmanager as sm
 from constructs import Construct
 from docker_fargate.generate_ssl_cert import cert_gen
+from docker_fargate.generate_jwks import jwks_gen
 from common.vpc_stack import get_region
 
 from aws_cdk.aws_ecr_assets import Platform
@@ -36,6 +42,9 @@ CONTAINER_ENV_NAME = "CONTAINER_ENV"
 
 PRIVATE_KEY_FILE_NAME = "privatekey.pem"
 CERTIFICATE_FILE_NAME = "certificate.pem"
+
+TOKEN_SIGNING_CERT_FILE_NAME = "resources/{}/token_signing_key_public_cert.pem"
+TOKEN_SIGNING_JWKS_FILE_NAME = "resources/{}/token_signing_jwks.json"
 
 BUCKET_NAME = "BUCKET_NAME"
 
@@ -75,6 +84,41 @@ class DockerFargateStack(Stack):
         bucket_name=get_bucket_name(env)
         bucket_arn=f"arn:aws:s3:::{bucket_name}"
         bucket=s3.Bucket.from_bucket_attributes(self, id=bucket_name, bucket_arn=bucket_arn)
+
+        # Transition all objects in the (imported, not CDK-managed) bucket to
+        # Intelligent-Tiering, including objects that already exist.
+        # Note: PutBucketLifecycleConfiguration replaces the bucket's ENTIRE
+        # lifecycle configuration, so any other lifecycle rules for this bucket
+        # must be added here rather than in the console.
+        lifecycle_call = cr.AwsSdkCall(
+            service="S3",
+            action="putBucketLifecycleConfiguration",
+            parameters={
+                "Bucket": bucket_name,
+                "LifecycleConfiguration": {"Rules": [{
+                    "ID": "IntelligentTiering",
+                    "Status": "Enabled",
+                    "Filter": {"Prefix": ""},
+                    "Transitions": [{"Days": 0, "StorageClass": "INTELLIGENT_TIERING"}],
+                }]},
+            },
+            physical_resource_id=cr.PhysicalResourceId.of(f"{bucket_name}-intelligent-tiering"),
+        )
+        cr.AwsCustomResource(self, "RegistryBucketIntelligentTiering",
+            on_create=lifecycle_call,
+            on_update=lifecycle_call,
+            on_delete=cr.AwsSdkCall(
+                service="S3",
+                action="deleteBucketLifecycle",
+                parameters={"Bucket": bucket_name},
+            ),
+            # s3:PutLifecycleConfiguration is the IAM action for both the put and
+            # delete calls; from_sdk_calls would derive a nonexistent action name
+            policy=cr.AwsCustomResourcePolicy.from_statements([
+                iam.PolicyStatement(actions=["s3:PutLifecycleConfiguration"], resources=[bucket_arn]),
+            ]),
+            install_latest_aws_sdk=False
+        )
 
         #
         # Docker Registry cannot access the task role provided by
@@ -131,6 +175,11 @@ class DockerFargateStack(Stack):
           f.write(key_and_cert["private_key"])
         with open(CERTIFICATE_FILE_NAME, "wt") as f:
           f.write(key_and_cert["certificate"])
+        # The registry verifies Synapse's tokens with a JWK Set derived from Synapse's token signing cert'
+        with open(TOKEN_SIGNING_CERT_FILE_NAME.format(context), "rb") as f:
+          jwks = jwks_gen(f.read())
+        with open(TOKEN_SIGNING_JWKS_FILE_NAME.format(context), "wt") as f:
+          f.write(jwks)
         # Now build the image, using the self-signed cert and key
         image = ecs.ContainerImage.from_asset(
             directory=".",
@@ -180,6 +229,7 @@ class DockerFargateStack(Stack):
             cpu=2048,                   # Default is 256
             desired_count=2,            # Number of copies of the 'task' (i.e. the app') running behind the ALB
             circuit_breaker=ecs.DeploymentCircuitBreaker(rollback=True), # Enable rollback on deployment failure
+            enable_execute_command=True, # Allow 'aws ecs execute-command' (adds ssm messages permissions to the task role)
             task_image_options=task_image_options,
             memory_limit_mib=4096,      # Default is 512
             public_load_balancer=True,  # Default is False
@@ -269,6 +319,68 @@ class DockerFargateStack(Stack):
         scalable_target.scale_on_memory_utilization("MemoryScaling",
             target_utilization_percent=50
         )
+
+        # Notifications go to the shared topic exported by the Synapse global-resources stack.
+        alarm_topic = sns.Topic.from_topic_arn(self, "NotificationTopic",
+            Fn.import_value(f'{region}-synapse-{context}-global-resources-NotificationTopic'))
+        target_group_metrics = load_balanced_fargate_service.target_group.metrics
+
+        # Alarm when the ALB sees an unhealthy target for 15 minutes straight,
+        # i.e. longer than ECS normally takes to replace a failed task.
+        # 'Maximum' so that any unhealthy target within a period counts.
+        unhealthy_host_alarm = cloudwatch.Alarm(self, "UnhealthyHostAlarm",
+            alarm_description="Docker registry ALB has had at least one unhealthy target for 15 minutes",
+            metric=target_group_metrics.unhealthy_host_count(
+                period=Duration.minutes(5),
+                statistic=cloudwatch.Stats.MAXIMUM,
+            ),
+            threshold=1,
+            comparison_operator=cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
+            evaluation_periods=3,
+            datapoints_to_alarm=3,
+            treat_missing_data=cloudwatch.TreatMissingData.NOT_BREACHING,
+        )
+        unhealthy_host_alarm.add_alarm_action(cw_actions.SnsAction(alarm_topic))
+        unhealthy_host_alarm.add_ok_action(cw_actions.SnsAction(alarm_topic))
+
+        # Alarm quickly on a full outage (no healthy targets). Crash-looping tasks
+        # get deregistered, so the unhealthy count alone can't be relied on here.
+        # Missing data is breaching since the ALB may stop reporting when no
+        # targets are registered.
+        no_healthy_host_alarm = cloudwatch.Alarm(self, "NoHealthyHostAlarm",
+            alarm_description="Docker registry ALB has had no healthy targets for 3 minutes",
+            metric=target_group_metrics.healthy_host_count(
+                period=Duration.minutes(1),
+                statistic=cloudwatch.Stats.MINIMUM,
+            ),
+            threshold=1,
+            comparison_operator=cloudwatch.ComparisonOperator.LESS_THAN_THRESHOLD,
+            evaluation_periods=3,
+            datapoints_to_alarm=3,
+            treat_missing_data=cloudwatch.TreatMissingData.BREACHING,
+        )
+        no_healthy_host_alarm.add_alarm_action(cw_actions.SnsAction(alarm_topic))
+        no_healthy_host_alarm.add_ok_action(cw_actions.SnsAction(alarm_topic))
+
+        # Latency alarm required by a security audit. Blob uploads stream through
+        # the registry, so pushes of large layers routinely take minutes and
+        # dominate any average; p99 stayed under 5 minutes except for isolated
+        # spikes, which can't fill 3 consecutive periods. Note that a hung
+        # target shows up as ALB 504s (60s idle timeout), not as response time.
+        response_time_alarm = cloudwatch.Alarm(self, "TargetResponseTimeAlarm",
+            alarm_description="Docker registry p99 target response time has exceeded 5 minutes for 15 minutes",
+            metric=target_group_metrics.target_response_time(
+                period=Duration.minutes(5),
+                statistic=cloudwatch.Stats.p(99),
+            ),
+            threshold=Duration.minutes(5).to_seconds(),
+            comparison_operator=cloudwatch.ComparisonOperator.GREATER_THAN_THRESHOLD,
+            evaluation_periods=3,
+            datapoints_to_alarm=3,
+            treat_missing_data=cloudwatch.TreatMissingData.NOT_BREACHING,
+        )
+        response_time_alarm.add_alarm_action(cw_actions.SnsAction(alarm_topic))
+        response_time_alarm.add_ok_action(cw_actions.SnsAction(alarm_topic))
 
         # ── Credential rotation ──────────────────────────────────────────────
         # SSM parameter used to hand the old key ID from the rotation Lambda to

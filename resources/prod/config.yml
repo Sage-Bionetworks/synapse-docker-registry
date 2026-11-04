@@ -34,7 +34,9 @@ auth:
         realm: https://repo-prod.prod.sagebase.org/docker/v1/bearerToken
         service: docker.synapse.org
         issuer: www.synapse.org
-        rootcertbundle: /etc/docker/registry/token_signing_key_public_cert.pem
+        # JWK Set derived from token_signing_key_public_cert.pem during 'cdk synth',
+        # publishing the key under the libtrust-style 'kid' that Synapse's tokens carry
+        jwks: /etc/docker/registry/token_signing_jwks.json
 
 notifications:
     endpoints:
