@@ -33,6 +33,7 @@ cdk deploy --context env=dev
   - WAF and ALB access logging
   - a private API Gateway + inline Lambda that logs registry notification events to CloudWatch, reachable only through the VPC endpoint
   - IAM key rotation
+  - CloudWatch alarms (ALB target health/latency, and an `Errors` alarm on each Lambda above) that notify the shared NotificationTopic imported from the Synapse global-resources stack
 
 **Container image build.** During synth, `DockerFargateStack` calls `cert_gen()` (`docker_fargate/generate_ssl_cert.py`) and writes `privatekey.pem`/`certificate.pem` to the repo root (gitignored). It also calls `jwks_gen()` (`docker_fargate/generate_jwks.py`) to derive `resources/<context>/token_signing_jwks.json` (gitignored) from Synapse's token-signing cert `resources/<context>/token_signing_key_public_cert.pem`. Synapse's tokens name their signing key with a libtrust-style `kid`, which `registry:3` can only match through the `jwks` option. It then runs `ContainerImage.from_asset(".")` with build arg `stack=<context>`. The `Dockerfile` copies `resources/<stack>/config.yml` and the JWK Set into the image. The self-signed cert only encrypts ALB→container traffic (a HIPAA requirement); the ALB serves the ACM cert to clients.
 
