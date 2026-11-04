@@ -71,6 +71,26 @@ def get_docker_image_name(env: dict):
 def get_port(env: dict) -> int:
     return int(env.get(PORT_NUMBER_CONTEXT))
 
+def add_lambda_error_alarm(scope: Construct, id: str, fn: aws_lambda.IFunction,
+                           topic: sns.ITopic, description: str) -> cloudwatch.Alarm:
+    # Alarm on any Lambda error. These functions run infrequently, so missing
+    # data is the normal state and is treated as not breaching.
+    alarm = cloudwatch.Alarm(scope, id,
+        alarm_description=description,
+        metric=fn.metric_errors(
+            period=Duration.minutes(5),
+            statistic=cloudwatch.Stats.SUM,
+        ),
+        threshold=1,
+        comparison_operator=cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
+        evaluation_periods=1,
+        datapoints_to_alarm=1,
+        treat_missing_data=cloudwatch.TreatMissingData.NOT_BREACHING,
+    )
+    alarm.add_alarm_action(cw_actions.SnsAction(topic))
+    alarm.add_ok_action(cw_actions.SnsAction(topic))
+    return alarm
+
 
 class DockerFargateStack(Stack):
 
@@ -144,7 +164,7 @@ class DockerFargateStack(Stack):
         bucket.grant_read_write(user)
 
         # create an APIGateway that logs registry events to Cloudwatch Logs
-        api_url = create_logging_apigateway(self, stack_prefix, stack_id, vpc_endpoint)
+        api_url, events_lambda = create_logging_apigateway(self, stack_prefix, stack_id, vpc_endpoint)
 
         cluster = ecs.Cluster(
             self,
@@ -460,6 +480,13 @@ class DockerFargateStack(Stack):
             ),
             targets=[targets.LambdaFunction(cleanup_lambda)],
         )
+
+        add_lambda_error_alarm(self, "RotationLambdaErrorAlarm", rotation_lambda, alarm_topic,
+            "Docker registry IAM key rotation Lambda reported an error")
+        add_lambda_error_alarm(self, "CleanupLambdaErrorAlarm", cleanup_lambda, alarm_topic,
+            "Docker registry old IAM key cleanup Lambda reported an error")
+        add_lambda_error_alarm(self, "EventsLambdaErrorAlarm", events_lambda, alarm_topic,
+            "Docker registry event-logging Lambda reported an error")
         # ── End credential rotation ──────────────────────────────────────────
 
         # Tag all resources in this Stack's scope with context tags
@@ -540,4 +567,4 @@ def handler(event, context):
     )
     # the URL for this gateway is api.url
 
-    return api.url
+    return api.url, lambda_function
