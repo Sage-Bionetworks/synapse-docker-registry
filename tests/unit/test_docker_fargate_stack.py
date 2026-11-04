@@ -75,6 +75,37 @@ def test_target_response_time_alarm_created():
         "OKActions": NOTIFICATION_TOPIC,
     })
 
+def test_lambda_error_alarms_created():
+    template = synth_template()
+
+    alarms = template.find_resources("AWS::CloudWatch::Alarm", {
+        "Properties": {
+            "MetricName": "Errors",
+            "Namespace": "AWS/Lambda",
+            "Statistic": "Sum",
+            "Period": 300,
+            "Threshold": 1,
+            "ComparisonOperator": "GreaterThanOrEqualToThreshold",
+            "EvaluationPeriods": 1,
+            "DatapointsToAlarm": 1,
+            "TreatMissingData": "notBreaching",
+            "AlarmActions": NOTIFICATION_TOPIC,
+            "OKActions": NOTIFICATION_TOPIC,
+        }
+    })
+    assert len(alarms) == 3
+
+    function_ids = set(template.find_resources("AWS::Lambda::Function").keys())
+    alarmed_ids = set()
+    for alarm in alarms.values():
+        dimensions = alarm["Properties"]["Dimensions"]
+        assert len(dimensions) == 1
+        assert dimensions[0]["Name"] == "FunctionName"
+        alarmed_ids.add(dimensions[0]["Value"]["Ref"])
+    assert alarmed_ids <= function_ids
+    prefixes = ("RotationLambda", "CleanupLambda", "Function")
+    assert sorted(p for p in prefixes for i in alarmed_ids if i.startswith(p)) == sorted(prefixes)
+
 def test_bucket_intelligent_tiering_lifecycle_rule():
     template = synth_template()
 
